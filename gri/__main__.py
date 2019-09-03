@@ -97,6 +97,7 @@ class CR(object):
         super().__init__()
         self.data = data
         self.server = server
+        self.score = 1
         if "topic" not in data:
             self.topic = ""
         else:
@@ -107,7 +108,17 @@ class CR(object):
 
         self.labels = {}
         for label_name, label_data in data.get("labels", {}).items():
-            self.labels[label_name] = Label(label_name, label_data)
+            label = Label(label_name, label_data)
+            self.labels[label_name] = label
+            if label.abbr == "W":
+                self.score += label.value * 20
+            if label.abbr == "CR":
+                self.score += label.value * 10
+            if label.abbr == "V":
+                self.score += label.value * 5
+
+        if self.is_wip:
+            self.score *= 0.5
 
     def __repr__(self):
         return str(self.number)
@@ -118,9 +129,18 @@ class CR(object):
         elif name == "number":
             return self.data["_number"]
 
+    def short_project(self):
+        return re.search("([^/]*)$", self.project).group(0)
+
     def __str__(self):
         msg = link(self.url, self.number)
+
+        msg += " " + term.bright_yellow(self.short_project())
+        if self.branch != "master":
+            msg += term.bright_magenta(" [%s]" % self.branch)
+
         msg += ": %s" % (self.subject)
+
         if self.topic:
             topic_url = "{}/#/q/topic:{}+(status:open+OR+status:merged)".format(
                 self.server.url, self.topic
@@ -134,10 +154,15 @@ class CR(object):
             if l.value:
                 # we print only labels without 0 value
                 msg += " %s" % l
+
+        msg += " %s" % self.score
         return msg
 
     def is_reviewed(self):
         return self.data["labels"]["Code-Review"]["value"] > 1
+
+    def __lt__(self, other):
+        return self.score >= other.score
 
 
 class Config(dict):
@@ -166,6 +191,13 @@ class GRI(object):
         if not self.servers:
             sys.exit(1)
 
+        self.reviews = list()
+        for server in self.servers:
+
+            for r in server.my_changes():
+                cr = CR(r, server)
+                self.reviews.append(cr)
+
     def header(self):
         msg = "GRI using %s servers:" % len(self.servers)
         for s in self.servers:
@@ -187,12 +219,10 @@ def main():
     gri = GRI()
     print(gri.header())
     cnt = 0
-    for server in gri.servers:
-
-        for r in server.my_changes():
-            cr = CR(r, server)
-            print(cr)
-            cnt += 1
+    for cr in sorted(gri.reviews):
+        print(cr)
+        logging.debug(cr.data)
+        cnt += 1
     print(term.bright_black("-- %d changes listed" % cnt))
 
 
