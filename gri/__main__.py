@@ -135,21 +135,31 @@ class CR(object):
     def __str__(self):
         msg = link(self.url, self.number)
 
-        msg += " " + term.bright_yellow(self.short_project())
+        if self.is_wip:
+            msg += " " + term.yellow(self.short_project())
+        else:
+            msg += " " + term.bright_yellow(self.short_project())
+
         if self.branch != "master":
             msg += term.bright_magenta(" [%s]" % self.branch)
 
-        msg += ": %s" % (self.subject)
+        if self.is_wip:
+            msg += term.bright_black(": %s" % (self.subject))
+        else:
+            msg += ": %s" % (self.subject)
 
         if self.topic:
             topic_url = "{}/#/q/topic:{}+(status:open+OR+status:merged)".format(
                 self.server.url, self.topic
             )
-            msg += term.blue + " " + link(topic_url, self.topic) + term.normal
+            msg += term.blue(" " + link(topic_url, self.topic))
+
         if not self.mergeable:
-            msg += term.yellow + " not-mergeable" + term.normal
+            msg += term.yellow(" not-mergeable")
+
         if self.is_wip:
             msg = term.bright_black(msg)
+
         for l in self.labels.values():
             if l.value:
                 # we print only labels without 0 value
