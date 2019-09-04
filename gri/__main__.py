@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 from blessings import Terminal
+import click
 import json
 import logging
 import netrc
@@ -22,31 +23,34 @@ KNOWN_SERVERS = {
 }
 term = Terminal()
 
+LOG = logging.getLogger(__name__)
+
 
 def link(url, name):
-    return "\033]8;;{}\033\\{:>6}\033]8;;\033\\".format(url, name)
+    return "\033]8;;{}\033\\{:<6}\033]8;;\033\\".format(url, name)
 
 
 class Label(object):
     def __init__(self, name, data):
         self.name = name
         self.abbr = re.sub("[^A-Z]", "", name)
-        self.value = data.get("disliked", 0)
+        self.value = 0
+
         if data.get("blocking", False):
-            self.value = -2
+            self.value += -2
         if data.get("approved", False):
-            self.value = 2
+            self.value += 2
         if data.get("recommended", False):
-            self.value = 1
+            self.value += 1
         if data.get("disliked", False):
-            self.value = -1
+            self.value += -1
         if data.get("rejected", False):
-            self.value = -1
+            self.value += -1
         unknown = set(data.keys()) - set(
             ["blocking", "approved", "recommended", "disliked", "rejected", "value"]
         )
         if unknown:
-            logging.error("Found unknown label field %s" % unknown)
+            LOG.error("Found unknown label field %s" % unknown)
 
     def __repr__(self):
         msg = self.abbr + ":" + str(self.value)
@@ -98,6 +102,9 @@ class CR(object):
         self.data = data
         self.server = server
         self.score = 1
+
+        LOG.debug(data)
+
         if "topic" not in data:
             self.topic = ""
         else:
@@ -132,8 +139,19 @@ class CR(object):
     def short_project(self):
         return re.search("([^/]*)$", self.project).group(0)
 
+    def background(self):
+        if self.is_wip:
+            return 0
+        gradient = [22, 58, 94, 130, 166, 196, 124]
+        scores = [40, 15, 10, 0, -10, -20, -25]
+        for i, s in enumerate(scores):
+            if self.score > s:
+                break
+        return gradient[i]
+
     def __str__(self):
-        msg = link(self.url, self.number)
+
+        msg = term.on_color(self.background()) + link(self.url, self.number) + term.normal
 
         if self.is_wip:
             msg += " " + term.yellow(self.short_project())
@@ -185,7 +203,7 @@ class Config(dict):
             try:
                 return yaml.safe_load(stream)
             except yaml.YAMLError as exc:
-                logging.error(exc)
+                LOG.error(exc)
                 sys.exit(2)
 
 
@@ -197,7 +215,7 @@ class GRI(object):
             try:
                 self.servers.append(GerritServer(url=s["url"], name=s["name"]))
             except SystemError as e:
-                logging.error(e)
+                LOG.error(e)
         if not self.servers:
             sys.exit(1)
 
@@ -225,16 +243,34 @@ def parsed(result):
         sys.exit(1)
 
 
-def main():
+@click.command()
+@click.option("--debug", "-d", default=False, help="Debug mode", is_flag=True)
+def main(debug):
+
+    handler = logging.StreamHandler()
+    formatter = logging.Formatter("%(levelname)-8s %(message)s")
+    handler.setFormatter(formatter)
+    LOG.addHandler(handler)
+
+    if debug:
+        LOG.setLevel(level=logging.DEBUG)
+    # msg =""
+    # gradient = [22, 58, 94, 130, 166, 196, 124]
+    # for g in gradient:
+    #     msg += term.on_color(g) + "A"
+    # print(msg)
+    # # return
     gri = GRI()
     print(gri.header())
     cnt = 0
     for cr in sorted(gri.reviews):
+        # msg = term.on_color(cr.background()) + str(cr)
         print(cr)
-        logging.debug(cr.data)
+        LOG.debug(cr.data)
         cnt += 1
     print(term.bright_black("-- %d changes listed" % cnt))
 
 
 if __name__ == "__main__":
+
     main()
