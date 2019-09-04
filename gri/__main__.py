@@ -46,11 +46,12 @@ class Label(object):
             self.value += -1
         if data.get("rejected", False):
             self.value += -1
-        unknown = set(data.keys()) - set(
-            ["blocking", "approved", "recommended", "disliked", "rejected", "value"]
-        )
-        if unknown:
-            LOG.error("Found unknown label field %s" % unknown)
+        if data.get("optional", False):
+            self.value = 1
+        for unknown in set(data.keys()) - set(
+            ["blocking", "approved", "recommended", "disliked", "rejected", "value", "optional"]
+        ):
+            LOG.warning("Found unknown label field %s: %s" % (unknown, data.get(unknown)))
 
     def __repr__(self):
         msg = self.abbr + ":" + str(self.value)
@@ -91,8 +92,12 @@ class GerritServer(object):
             {"Content-Type": "application/json;charset=UTF-8", "Access-Control-Allow-Origin": "*"}
         )
 
-    def my_changes(self):
-        query = "%sa/changes/?q=owner:self%%20status:open&o=LABELS&o=COMMIT_FOOTERS" % self.url
+    def query(self, query=None):
+        query_map = {
+            None: r"a/changes/?q=owner:self%20status:open",
+            "incoming": r"a/changes/?q=reviewer:self%20status:open%20NOT%20label:Code-Review>=0,self",  # noqa
+        }
+        query = self.url + query_map[query] + "&o=LABELS&o=COMMIT_FOOTERS"
         return parsed(self.__session.get(query))
 
 
@@ -212,7 +217,7 @@ class Config(dict):
 
 
 class GRI(object):
-    def __init__(self):
+    def __init__(self, query=None):
         self.cfg = Config()
         self.servers = []
         for s in self.cfg["servers"]:
@@ -226,7 +231,7 @@ class GRI(object):
         self.reviews = list()
         for server in self.servers:
 
-            for r in server.my_changes():
+            for r in server.query(query=query):
                 cr = CR(r, server)
                 self.reviews.append(cr)
 
@@ -249,8 +254,9 @@ def parsed(result):
 
 @click.command()
 @click.option("--debug", "-d", default=False, help="Debug mode", is_flag=True)
-def main(debug):
-
+@click.option("--incoming", "-i", default=False, help="Incoming reviews (not mine)", is_flag=True)
+def main(debug, incoming):
+    query = None
     handler = logging.StreamHandler()
     formatter = logging.Formatter("%(levelname)-8s %(message)s")
     handler.setFormatter(formatter)
@@ -264,7 +270,9 @@ def main(debug):
     #     msg += term.on_color(g) + "A"
     # print(msg)
     # # return
-    gri = GRI()
+    if incoming:
+        query = "incoming"
+    gri = GRI(query=query)
     print(gri.header())
     cnt = 0
     for cr in sorted(gri.reviews):
