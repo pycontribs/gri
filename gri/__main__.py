@@ -27,7 +27,7 @@ LOG = logging.getLogger(__name__)
 
 
 def link(url, name):
-    return "\033]8;;{}\033\\{:<6}\033]8;;\033\\".format(url, name)
+    return "\033]8;;{}\033\\{}\033]8;;\033\\".format(url, name)
 
 
 class Label(object):
@@ -123,6 +123,8 @@ class CR(object):
                 self.score += label.value * 10
             if label.abbr == "V":
                 self.score += label.value * 5
+        if self.starred:
+            self.score += 10
 
         if self.is_wip:
             self.score *= 0.5
@@ -151,7 +153,8 @@ class CR(object):
 
     def __str__(self):
 
-        msg = term.on_color(self.background()) + link(self.url, self.number) + term.normal
+        prefix = "%s%s" % ("⭐" if self.starred else "  ", " " * (8 - len(str(self.number))))
+        msg = term.on_color(self.background()) + prefix + link(self.url, self.number) + term.normal
 
         if self.is_wip:
             msg += " " + term.yellow(self.short_project())
