@@ -101,7 +101,7 @@ class CR(object):
         super().__init__()
         self.data = data
         self.server = server
-        self.score = 1
+        self.score = 1.0
 
         LOG.debug(data)
 
@@ -123,11 +123,14 @@ class CR(object):
                 self.score += label.value * 10
             if label.abbr == "V":
                 self.score += label.value * 5
+                if label.value == 0:
+                    self.score -= 100
         if self.starred:
             self.score += 10
 
+        # We just want to keep wip changes in the same are ~0..1 score.
         if self.is_wip:
-            self.score *= 0.5
+            self.score /= 100
 
     def __repr__(self):
         return str(self.number)
@@ -156,37 +159,35 @@ class CR(object):
         prefix = "%s%s" % ("⭐" if self.starred else "  ", " " * (8 - len(str(self.number))))
         msg = term.on_color(self.background()) + prefix + link(self.url, self.number) + term.normal
 
+        m = ""
         if self.is_wip:
-            msg += " " + term.yellow(self.short_project())
+            m += " " + term.yellow(self.short_project())
         else:
-            msg += " " + term.bright_yellow(self.short_project())
+            m += " " + term.bright_yellow(self.short_project())
 
         if self.branch != "master":
-            msg += term.bright_magenta(" [%s]" % self.branch)
+            m += term.bright_magenta(" [%s]" % self.branch)
 
         if self.is_wip:
-            msg += term.bright_black(": %s" % (self.subject))
+            m += term.bright_black(": %s" % (self.subject))
         else:
-            msg += ": %s" % (self.subject)
+            m += ": %s" % (self.subject)
 
         if self.topic:
             topic_url = "{}/#/q/topic:{}+(status:open+OR+status:merged)".format(
                 self.server.url, self.topic
             )
-            msg += term.blue(" " + link(topic_url, self.topic))
+            m += term.blue(" " + link(topic_url, self.topic))
 
         if not self.mergeable:
-            msg += term.yellow(" not-mergeable")
-
-        if self.is_wip:
-            msg = term.bright_black(msg)
+            m += term.yellow(" not-mergeable")
 
         for l in self.labels.values():
             if l.value:
                 # we print only labels without 0 value
-                msg += " %s" % l
+                m += " %s" % l
 
-        msg += " %s" % self.score
+        msg += m + " %s" % self.score
         return msg
 
     def is_reviewed(self):
