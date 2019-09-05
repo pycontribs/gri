@@ -217,10 +217,10 @@ class Config(dict):
 
 
 class GRI(object):
-    def __init__(self, query=None):
+    def __init__(self, query=None, server=None):
         self.cfg = Config()
         self.servers = []
-        for s in self.cfg["servers"]:
+        for s in self.cfg["servers"] if server is None else [self.cfg["servers"][int(server)]]:
             try:
                 self.servers.append(GerritServer(url=s["url"], name=s["name"]))
             except SystemError as e:
@@ -255,7 +255,8 @@ def parsed(result):
 @click.command()
 @click.option("--debug", "-d", default=False, help="Debug mode", is_flag=True)
 @click.option("--incoming", "-i", default=False, help="Incoming reviews (not mine)", is_flag=True)
-def main(debug, incoming):
+@click.option("--server", "-s", default=None, help="Query a single server instead of all")
+def main(debug, incoming, server):
     query = None
     handler = logging.StreamHandler()
     formatter = logging.Formatter("%(levelname)-8s %(message)s")
@@ -272,7 +273,7 @@ def main(debug, incoming):
     # # return
     if incoming:
         query = "incoming"
-    gri = GRI(query=query)
+    gri = GRI(query=query, server=server)
     print(gri.header())
     cnt = 0
     for cr in sorted(gri.reviews):
