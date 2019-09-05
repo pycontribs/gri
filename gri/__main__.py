@@ -185,7 +185,7 @@ class CR(object):
             m += term.blue(" " + link(topic_url, self.topic))
 
         if not self.mergeable:
-            m += term.yellow(" not-mergeable")
+            m += term.bright_red(" cannot-merge")
 
         for l in self.labels.values():
             if l.value:
