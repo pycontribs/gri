@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# -*- coding: utf-8 -*-
 from blessings import Terminal
 import click
 import json
@@ -102,9 +103,8 @@ class GerritServer(object):
         return parsed(self.__session.get(query))
 
 
-class CR(object):
+class CR:
     def __init__(self, data, server):
-        super().__init__()
         self.data = data
         self.server = server
         self.score = 1.0
@@ -162,7 +162,7 @@ class CR(object):
 
     def __str__(self):
 
-        prefix = "%s%s" % ("⭐" if self.starred else "  ", " " * (8 - len(str(self.number))))
+        prefix = "%s%s" % (u"⭐" if self.starred else "  ", " " * (8 - len(str(self.number))))
         msg = term.on_color(self.background()) + prefix + link(self.url, self.number) + term.normal
 
         m = ""
@@ -263,6 +263,10 @@ def main(debug, incoming, server):
     formatter = logging.Formatter("%(levelname)-8s %(message)s")
     handler.setFormatter(formatter)
     LOG.addHandler(handler)
+
+    if sys.version_info.major < 3:
+        reload(sys)  # noqa
+        sys.setdefaultencoding("utf8")
 
     if debug:
         LOG.setLevel(level=logging.DEBUG)
