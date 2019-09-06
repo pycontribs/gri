@@ -95,8 +95,9 @@ class GerritServer(object):
     def query(self, query=None):
         query_map = {
             None: r"a/changes/?q=owner:self%20status:open",
-            "incoming": r"a/changes/?q=reviewer:self%20status:open%20NOT%20label:Code-Review>=0,self",  # noqa
+            "incoming": r"a/changes/?q=reviewer:self%20status:open",  # noqa
         }
+        # %20NOT%20label:Code-Review>=0,self
         query = self.url + query_map[query] + "&o=LABELS&o=COMMIT_FOOTERS"
         return parsed(self.__session.get(query))
 
