@@ -39,9 +39,13 @@ a new one if not. Once done, you are welcomed to make a PR that implements
 the missing change.
 
 ## Related tools
+* [git-review][3] is the git extension for working with gerrit, where I am also
+one of the core contributors.
 * [GerTTY](https://github.com/openstack/gertty) is a very useful tui for gerrit
 which inspired me but which presents one essential design limitation: it does
 not work with multiple Gerrit servers.
+* [Gerrit-View](https://github.com/Gruntfuggly/gerrit-view) is a vscode plugin
+that can be installed from [Visual Studio Marketplace][2].
 
 ## Notes
 1. <span id="f1"></span> The reality is that `gri` name comes from my attempt to
@@ -50,3 +54,5 @@ preferably sounds like `cli`, most were taken. You are welcomed to propose
 better acronym expansions.
 
 [1]: https://github.com/openstack/gertty/tree/master/examples
+[2]: https://marketplace.visualstudio.com/items?itemName=Gruntfuggly.gerrit-view
+[3]: https://docs.openstack.org/infra/git-review/
