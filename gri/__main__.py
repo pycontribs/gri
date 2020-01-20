@@ -21,6 +21,7 @@ from requests.auth import HTTPBasicAuth, HTTPDigestAuth
 KNOWN_SERVERS = {
     "https://review.opendev.org/": {"auth": HTTPDigestAuth},
     "https://code.engineering.redhat.com/gerrit/": {"auth": HTTPDigestAuth},
+    "verify": False,
 }
 term = Terminal()
 
@@ -73,11 +74,14 @@ class GerritServer(object):
         if not name:
             self.name = parsed_uri.netloc
         self.auth_class = HTTPBasicAuth
-        if self.url in KNOWN_SERVERS:
-            self.auth_class = KNOWN_SERVERS[url]["auth"]
 
         # name is only used as an acronym
         self.__session = requests.Session()
+
+        if self.url in KNOWN_SERVERS:
+            self.auth_class = KNOWN_SERVERS[url]["auth"]
+            self.__session.verify = KNOWN_SERVERS[url].get("verify", True)
+
         # workaround for netrc error: OSError("Could not find .netrc: $HOME is not set")
         if "HOME" not in os.environ:
             os.environ["HOME"] = os.path.expanduser("~")
@@ -180,7 +184,7 @@ class CR:
             m += ": %s" % (self.subject)
 
         if self.topic:
-            topic_url = "{}/#/q/topic:{}+(status:open+OR+status:merged)".format(
+            topic_url = "{}#/q/topic:{}+(status:open+OR+status:merged)".format(
                 self.server.url, self.topic
             )
             m += term.blue(" " + link(topic_url, self.topic))
