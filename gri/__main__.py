@@ -192,10 +192,10 @@ class CR:
         if not self.mergeable:
             m += term.bright_red(" cannot-merge")
 
-        for l in self.labels.values():
-            if l.value:
+        for label in self.labels.values():
+            if label.value:
                 # we print only labels without 0 value
-                m += " %s" % l
+                m += " %s" % label
 
         msg += m + " %s" % self.score
         return msg
@@ -260,7 +260,12 @@ def parsed(result):
 @click.command()
 @click.option("--debug", "-d", default=False, help="Debug mode", is_flag=True)
 @click.option("--incoming", "-i", default=False, help="Incoming reviews (not mine)", is_flag=True)
-@click.option("--server", "-s", default=None, help="Query a single server instead of all")
+@click.option(
+    "--server",
+    "-s",
+    default=None,
+    help="[0,1,2] key in list of servers, Query a single server instead of all",
+)
 def main(debug, incoming, server):
     query = None
     handler = logging.StreamHandler()
