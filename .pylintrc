@@ -3,7 +3,6 @@
 disable =
     # TODO(ssbarnea): remove temporary skips adding during initial adoption:
     import-error,
-    invalid-name,
     missing-class-docstring,
     missing-function-docstring,
     missing-module-docstring,
@@ -12,7 +11,6 @@ disable =
     no-value-for-parameter,
     raising-format-tuple,
     too-few-public-methods,
-    undefined-loop-variable,
 
 [REPORTS]
 output-format = colorized

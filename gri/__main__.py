@@ -176,8 +176,9 @@ class CR:
             return 0
         gradient = [22, 58, 94, 130, 166, 196, 124]
         scores = [40, 15, 10, 0, -10, -20, -25]
-        for i, s in enumerate(scores):
-            if self.score > s:
+        i = 0
+        for i, score in enumerate(scores):
+            if self.score > score:
                 break
         return gradient[i]
 
@@ -187,42 +188,41 @@ class CR:
             u"⭐" if self.starred else "  ",
             " " * (8 - len(str(self.number))),
         )
+
         msg = (
             term.on_color(self.background())
             + prefix
             + link(self.url, self.number)
             + term.normal
         )
-
-        m = ""
         if self.is_wip:
-            m += " " + term.yellow(self.short_project())
+            msg += " " + term.yellow(self.short_project())
         else:
-            m += " " + term.bright_yellow(self.short_project())
+            msg += " " + term.bright_yellow(self.short_project())
 
         if self.branch != "master":
-            m += term.bright_magenta(" [%s]" % self.branch)
+            msg += term.bright_magenta(" [%s]" % self.branch)
 
         if self.is_wip:
-            m += term.bright_black(": %s" % (self.subject))
+            msg += term.bright_black(": %s" % (self.subject))
         else:
-            m += ": %s" % (self.subject)
+            msg += ": %s" % (self.subject)
 
         if self.topic:
             topic_url = "{}#/q/topic:{}+(status:open+OR+status:merged)".format(
                 self.server.url, self.topic
             )
-            m += term.blue(" " + link(topic_url, self.topic))
+            msg += term.blue(" " + link(topic_url, self.topic))
 
         if not self.mergeable:
-            m += term.bright_red(" cannot-merge")
+            msg += term.bright_red(" cannot-merge")
 
         for label in self.labels.values():
             if label.value:
                 # we print only labels without 0 value
-                m += " %s" % label
+                msg += " %s" % label
 
-        msg += m + " %s" % self.score
+        msg += " %s" % self.score
         return msg
 
     def is_reviewed(self):
@@ -251,29 +251,28 @@ class GRI:
     def __init__(self, query=None, server=None):
         self.cfg = Config()
         self.servers = []
-        for s in (
+        for srv in (
             self.cfg["servers"]
             if server is None
             else [self.cfg["servers"][int(server)]]
         ):
             try:
-                self.servers.append(GerritServer(url=s["url"], name=s["name"]))
-            except SystemError as e:
-                LOG.error(e)
+                self.servers.append(GerritServer(url=srv["url"], name=srv["name"]))
+            except SystemError as exc:
+                LOG.error(exc)
         if not self.servers:
             sys.exit(1)
 
         self.reviews = list()
         for item in self.servers:
 
-            for r in item.query(query=query):
-                cr = CR(r, item)
-                self.reviews.append(cr)
+            for record in item.query(query=query):
+                self.reviews.append(CR(record, item))
 
     def header(self):
         msg = "GRI using %s servers:" % len(self.servers)
-        for s in self.servers:
-            msg += " %s" % s.name
+        for server in self.servers:
+            msg += " %s" % server.name
         return term.on_bright_black(msg)
 
 
@@ -317,10 +316,10 @@ def main(debug, incoming, server):
     gri = GRI(query=query, server=server)
     print(gri.header())
     cnt = 0
-    for cr in sorted(gri.reviews):
+    for review in sorted(gri.reviews):
         # msg = term.on_color(cr.background()) + str(cr)
-        print(cr)
-        LOG.debug(cr.data)
+        print(review)
+        LOG.debug(review.data)
         cnt += 1
     print(term.bright_black("-- %d changes listed" % cnt))
 
