@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+import datetime
 import json
 import logging
 import netrc
@@ -86,6 +87,7 @@ class GerritServer:
         if not name:
             self.name = parsed_uri.netloc
         self.auth_class = HTTPBasicAuth
+        self.hostname = parsed_uri.netloc
 
         # name is only used as an acronym
         self.__session = requests.Session()
@@ -99,6 +101,10 @@ class GerritServer:
             os.environ["HOME"] = os.path.expanduser("~")
 
         token = netrc.netrc().authenticators(parsed_uri.netloc)
+
+        # saving username (may be needed later)
+        self.username = token[0]
+
         if not token:
             raise SystemError(
                 f"Unable to load credentials for {url} from ~/.netrc file"
@@ -232,6 +238,22 @@ class CR:
     def __lt__(self, other):
         return self.score >= other.score
 
+    def abandon(self, dry=True):
+        # shell out here because HTTPS api to abandon can fail
+        if self.draft:
+            action = "delete"
+        else:
+            action = "abandon"
+
+        LOG.info("Performing %s on %s", action, self.number)
+        if not dry:
+            cmd = (
+                f"ssh -p 29418 {self.server.username}"
+                f"@{self.server.hostname} gerrit review "
+                f"{self.number},1 --{action} --message too_old"
+            )
+            os.system(cmd)
+
 
 class Config(dict):
     def __init__(self):
@@ -291,6 +313,21 @@ def parsed(result):
 @click.command()
 @click.option("--debug", "-d", default=False, help="Debug mode", is_flag=True)
 @click.option(
+    "--abandon",
+    "-a",
+    default=False,
+    help="Abandon changes (delete for drafts) when they are >90 days old "
+    "and with negative score. Requires -f to perform the action.",
+    is_flag=True,
+)
+@click.option(
+    "--force",
+    "-f",
+    default=False,
+    help="Perform potentially destructive actions.",
+    is_flag=True,
+)
+@click.option(
     "--incoming", "-i", default=False, help="Incoming reviews (not mine)", is_flag=True
 )
 @click.option(
@@ -299,13 +336,17 @@ def parsed(result):
     default=None,
     help="[0,1,2] key in list of servers, Query a single server instead of all",
 )
-def main(debug, incoming, server):
+@click.pass_context
+# pylint: disable=unused-argument,too-many-arguments,too-many-locals
+def main(ctx, debug, incoming, server, abandon, force):
     query = None
     handler = logging.StreamHandler()
     formatter = logging.Formatter("%(levelname)-8s %(message)s")
     handler.setFormatter(formatter)
     LOG.addHandler(handler)
+    time_now = datetime.datetime.now()
 
+    LOG.warning("Called with %s", ctx.params)
     if debug:
         LOG.setLevel(level=logging.DEBUG)
     # msg =""
@@ -319,9 +360,18 @@ def main(debug, incoming, server):
     gri = GRI(query=query, server=server)
     print(gri.header())
     cnt = 0
+
     for review in sorted(gri.reviews):
         # msg = term.on_color(cr.background()) + str(cr)
         print(review)
+        if ctx.params["abandon"] and review.score < 1:
+            cr_last_updated = review.data["updated"]
+            time_cr_updated = datetime.datetime.strptime(
+                cr_last_updated[:-3], "%Y-%m-%d %H:%M:%S.%f"
+            )
+            cr_age = time_now - time_cr_updated
+            if int(cr_age.days) > 90 and query != "incoming":
+                review.abandon(dry=ctx.params["force"])
         LOG.debug(review.data)
         cnt += 1
     print(term.bright_black("-- %d changes listed" % cnt))
