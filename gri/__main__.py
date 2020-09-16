@@ -305,10 +305,6 @@ def main(debug, incoming, server):
     handler.setFormatter(formatter)
     LOG.addHandler(handler)
 
-    if sys.version_info.major < 3:
-        reload(sys)  # noqa
-        sys.setdefaultencoding("utf8")
-
     if debug:
         LOG.setLevel(level=logging.DEBUG)
     # msg =""
