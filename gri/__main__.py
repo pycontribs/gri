@@ -245,7 +245,7 @@ class CR:
         else:
             action = "abandon"
 
-        LOG.info("Performing %s on %s", action, self.number)
+        LOG.warning("Performing %s on %s", action, self.number)
         if not dry:
             cmd = (
                 f"ssh -p 29418 {self.server.username}"
@@ -321,6 +321,12 @@ def parsed(result):
     is_flag=True,
 )
 @click.option(
+    "--abandon-age",
+    "-z",
+    default=90,
+    help="default=90, number of days for which changes are subject to abandon",
+)
+@click.option(
     "--force",
     "-f",
     default=False,
@@ -338,7 +344,7 @@ def parsed(result):
 )
 @click.pass_context
 # pylint: disable=unused-argument,too-many-arguments,too-many-locals
-def main(ctx, debug, incoming, server, abandon, force):
+def main(ctx, debug, incoming, server, abandon, force, abandon_age):
     query = None
     handler = logging.StreamHandler()
     formatter = logging.Formatter("%(levelname)-8s %(message)s")
@@ -369,8 +375,8 @@ def main(ctx, debug, incoming, server, abandon, force):
             time_cr_updated = datetime.datetime.strptime(
                 cr_last_updated[:-3], "%Y-%m-%d %H:%M:%S.%f"
             )
-            cr_age = time_now - time_cr_updated
-            if int(cr_age.days) > 90 and query != "incoming":
+            cr_age = (time_now - time_cr_updated).days
+            if int(cr_age) > ctx.params["abandon_age"] and query != "incoming":
                 review.abandon(dry=ctx.params["force"])
         LOG.debug(review.data)
         cnt += 1
