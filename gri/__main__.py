@@ -34,7 +34,7 @@ def link(url, name):
     return "\033]8;;{}\033\\{}\033]8;;\033\\".format(url, name)
 
 
-class Label(object):
+class Label:
     def __init__(self, name, data):
         self.name = name
         self.abbr = re.sub("[^A-Z]", "", name)
@@ -63,9 +63,7 @@ class Label(object):
                 "optional",
             ]
         ):
-            LOG.warning(
-                "Found unknown label field %s: %s" % (unknown, data.get(unknown))
-            )
+            LOG.warning("Found unknown label field %s: %s", unknown, data.get(unknown))
 
     def __repr__(self):
         msg = self.abbr + ":" + str(self.value)
@@ -78,7 +76,7 @@ class Label(object):
         return msg
 
 
-class GerritServer(object):
+class GerritServer:
     def __init__(self, url, name=None):
         self.url = url
         self.name = name
@@ -166,8 +164,9 @@ class CR:
     def __getattr__(self, name):
         if name in self.data:
             return self.data[name]
-        elif name == "number":
+        if name == "number":
             return self.data["_number"]
+        return None
 
     def short_project(self):
         return re.search("([^/]*)$", self.project).group(0)
@@ -235,6 +234,7 @@ class CR:
 
 class Config(dict):
     def __init__(self):
+        super().__init__()
         self.update(self.load_config("~/.gertty.yaml"))
 
     def load_config(self, config_file):
@@ -247,7 +247,7 @@ class Config(dict):
                 sys.exit(2)
 
 
-class GRI(object):
+class GRI:
     def __init__(self, query=None, server=None):
         self.cfg = Config()
         self.servers = []
@@ -264,10 +264,10 @@ class GRI(object):
             sys.exit(1)
 
         self.reviews = list()
-        for server in self.servers:
+        for item in self.servers:
 
-            for r in server.query(query=query):
-                cr = CR(r, server)
+            for r in item.query(query=query):
+                cr = CR(r, item)
                 self.reviews.append(cr)
 
     def header(self):
@@ -282,9 +282,8 @@ def parsed(result):
 
     if hasattr(result, "text") and result.text[:4] == ")]}'":
         return json.loads(result.text[5:])
-    else:
-        print("ERROR: %s " % (result.result_code))
-        sys.exit(1)
+    print("ERROR: %s " % (result.result_code))
+    sys.exit(1)
 
 
 @click.command()
