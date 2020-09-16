@@ -1,19 +1,21 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-from blessings import Terminal
-import click
 import json
 import logging
 import netrc
 import os
 import re
-import requests
 import sys
+
+import click
+import requests
+from blessings import Terminal
 
 try:
     from urllib.parse import urlparse
 except ImportError:
-    from urlparse import urlparse
+    from urlparse import urlparse  # type: ignore
+
 import yaml
 from requests.auth import HTTPBasicAuth, HTTPDigestAuth
 
@@ -51,9 +53,19 @@ class Label(object):
         if data.get("optional", False):
             self.value = 1
         for unknown in set(data.keys()) - set(
-            ["blocking", "approved", "recommended", "disliked", "rejected", "value", "optional"]
+            [
+                "blocking",
+                "approved",
+                "recommended",
+                "disliked",
+                "rejected",
+                "value",
+                "optional",
+            ]
         ):
-            LOG.warning("Found unknown label field %s: %s" % (unknown, data.get(unknown)))
+            LOG.warning(
+                "Found unknown label field %s: %s" % (unknown, data.get(unknown))
+            )
 
     def __repr__(self):
         msg = self.abbr + ":" + str(self.value)
@@ -89,12 +101,16 @@ class GerritServer(object):
         token = netrc.netrc().authenticators(parsed_uri.netloc)
         if not token:
             raise SystemError(
-                "Unable to load credentials for %s from ~/.netrc file, add them dear human!", url
+                "Unable to load credentials for %s from ~/.netrc file",
+                url,
             )
         self.__session.auth = self.auth_class(token[0], token[2])
 
         self.__session.headers.update(
-            {"Content-Type": "application/json;charset=UTF-8", "Access-Control-Allow-Origin": "*"}
+            {
+                "Content-Type": "application/json;charset=UTF-8",
+                "Access-Control-Allow-Origin": "*",
+            }
         )
 
     def query(self, query=None):
@@ -120,7 +136,9 @@ class CR:
         else:
             self.topic = data["topic"]
 
-        self.is_wip = re.compile("^\\[?(WIP|DNM|POC).+$", re.IGNORECASE).match(self.subject)
+        self.is_wip = re.compile("^\\[?(WIP|DNM|POC).+$", re.IGNORECASE).match(
+            self.subject
+        )
         self.url = "{}#/c/{}/".format(self.server.url, self.number)
 
         self.labels = {}
@@ -166,8 +184,16 @@ class CR:
 
     def __str__(self):
 
-        prefix = "%s%s" % (u"⭐" if self.starred else "  ", " " * (8 - len(str(self.number))))
-        msg = term.on_color(self.background()) + prefix + link(self.url, self.number) + term.normal
+        prefix = "%s%s" % (
+            u"⭐" if self.starred else "  ",
+            " " * (8 - len(str(self.number))),
+        )
+        msg = (
+            term.on_color(self.background())
+            + prefix
+            + link(self.url, self.number)
+            + term.normal
+        )
 
         m = ""
         if self.is_wip:
@@ -225,7 +251,11 @@ class GRI(object):
     def __init__(self, query=None, server=None):
         self.cfg = Config()
         self.servers = []
-        for s in self.cfg["servers"] if server is None else [self.cfg["servers"][int(server)]]:
+        for s in (
+            self.cfg["servers"]
+            if server is None
+            else [self.cfg["servers"][int(server)]]
+        ):
             try:
                 self.servers.append(GerritServer(url=s["url"], name=s["name"]))
             except SystemError as e:
@@ -259,7 +289,9 @@ def parsed(result):
 
 @click.command()
 @click.option("--debug", "-d", default=False, help="Debug mode", is_flag=True)
-@click.option("--incoming", "-i", default=False, help="Incoming reviews (not mine)", is_flag=True)
+@click.option(
+    "--incoming", "-i", default=False, help="Incoming reviews (not mine)", is_flag=True
+)
 @click.option(
     "--server",
     "-s",
