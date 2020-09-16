@@ -34,6 +34,7 @@ def link(url, name):
     return "\033]8;;{}\033\\{}\033]8;;\033\\".format(url, name)
 
 
+# pylint: disable=too-few-public-methods
 class Label:
     def __init__(self, name, data):
         self.name = name
@@ -76,6 +77,7 @@ class Label:
         return msg
 
 
+# pylint: disable=too-few-public-methods
 class GerritServer:
     def __init__(self, url, name=None):
         self.url = url
@@ -99,8 +101,7 @@ class GerritServer:
         token = netrc.netrc().authenticators(parsed_uri.netloc)
         if not token:
             raise SystemError(
-                "Unable to load credentials for %s from ~/.netrc file",
-                url,
+                f"Unable to load credentials for {url} from ~/.netrc file"
             )
         self.__session.auth = self.auth_class(token[0], token[2])
 
@@ -185,7 +186,7 @@ class CR:
     def __str__(self):
 
         prefix = "%s%s" % (
-            u"⭐" if self.starred else "  ",
+            "⭐" if self.starred else "  ",
             " " * (8 - len(str(self.number))),
         )
 
@@ -237,7 +238,8 @@ class Config(dict):
         super().__init__()
         self.update(self.load_config("~/.gertty.yaml"))
 
-    def load_config(self, config_file):
+    @staticmethod
+    def load_config(config_file):
         config_file = os.path.expanduser(config_file)
         with open(config_file, "r") as stream:
             try:
@@ -247,6 +249,7 @@ class Config(dict):
                 sys.exit(2)
 
 
+# pylint: disable=too-few-public-methods
 class GRI:
     def __init__(self, query=None, server=None):
         self.cfg = Config()
@@ -326,4 +329,4 @@ def main(debug, incoming, server):
 
 if __name__ == "__main__":
 
-    main()
+    main()  # pylint: disable=no-value-for-parameter
