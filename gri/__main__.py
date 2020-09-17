@@ -10,7 +10,10 @@ import sys
 
 import click
 import requests
-from blessings import Terminal
+import rich
+from rich.console import Console
+from rich.logging import RichHandler
+from rich.theme import Theme
 
 try:
     from urllib.parse import urlencode, urlparse
@@ -26,13 +29,24 @@ KNOWN_SERVERS = {
     "https://code.engineering.redhat.com/gerrit/": {"auth": HTTPDigestAuth},
     "verify": False,
 }
-term = Terminal()
+theme = Theme(
+    {
+        "normal": "",  # No or minor danger
+        "moderate": "yellow",  # Moderate danger
+        "considerable": "dark_orange",  # Considerable danger
+        "high": "red",  # High danger
+        "veryhigh": "dim red",  # Very high danger
+        "branch": "magenta",
+        "wip": "bold yellow",
+    }
+)
+term = Console(theme=theme, highlighter=rich.highlighter.ReprHighlighter())
 
 LOG = logging.getLogger(__name__)
 
 
 def link(url, name):
-    return "\033]8;;{}\033\\{}\033]8;;\033\\".format(url, name)
+    return f"[link={url}]{name}[/link]"
 
 
 # pylint: disable=too-few-public-methods
@@ -70,12 +84,12 @@ class Label:
     def __repr__(self):
         msg = self.abbr + ":" + str(self.value)
         if self.value < 0:
-            msg = term.red(msg)
+            color = "red"
         elif self.value == 0:
-            msg = term.yellow(msg)
+            color = "yellow"
         elif self.value > 0:
-            msg = term.green(msg)
-        return msg
+            color = "green"
+        return f"[{color}]{msg}[/]"
 
 
 # pylint: disable=too-few-public-methods
@@ -181,15 +195,27 @@ class CR:
         return re.search("([^/]*)$", self.project).group(0)
 
     def background(self):
+        styles = [
+            "normal",
+            "low",
+            "moderate",
+            "considerable",
+            "veryhigh",
+        ]
         if self.is_wip:
-            return 0
-        gradient = [22, 58, 94, 130, 166, 196, 124]
-        scores = [40, 15, 10, 0, -10, -20, -25]
+            return styles[0]
+        scores = [
+            40,
+            15,
+            10,
+            0,
+            -10,
+        ]
         i = 0
         for i, score in enumerate(scores):
             if self.score > score:
                 break
-        return gradient[i]
+        return styles[i]
 
     def __str__(self):
 
@@ -198,40 +224,31 @@ class CR:
             " " * (8 - len(str(self.number))),
         )
 
-        msg = (
-            term.on_color(self.background())
-            + prefix
-            + link(self.url, self.number)
-            + term.normal
-        )
-        if self.is_wip:
-            msg += " " + term.yellow(self.short_project())
-        else:
-            msg += " " + term.bright_yellow(self.short_project())
+        msg = f"{prefix}[{self.background()}]{link(self.url, self.number)}[/]"
+
+        msg += f" [{ 'wip' if self.is_wip else 'normal' }]{self.short_project()}[/]"
 
         if self.branch != "master":
-            msg += term.bright_magenta(" [%s]" % self.branch)
+            msg += f" [branch][{self.branch}][/]"
 
-        if self.is_wip:
-            msg += term.bright_black(": %s" % (self.subject))
-        else:
-            msg += ": %s" % (self.subject)
+        msg += "[dim]: %s[/]" % (self.subject)
 
         if self.topic:
             topic_url = "{}#/q/topic:{}+(status:open+OR+status:merged)".format(
                 self.server.url, self.topic
             )
-            msg += term.blue(" " + link(topic_url, self.topic))
+            msg += f" {link(topic_url, self.topic)}"
 
         if not self.mergeable:
-            msg += term.bright_red(" cannot-merge")
+            msg += " [veryhigh]cannot-merge[/]"
 
         for label in self.labels.values():
             if label.value:
                 # we print only labels without 0 value
                 msg += " %s" % label
 
-        msg += " %s" % self.score
+        msg += f" [dim]{self.score}[/]"
+
         return msg
 
     def is_reviewed(self):
@@ -300,7 +317,8 @@ class GRI:
         msg = "GRI using %s servers:" % len(self.servers)
         for server in self.servers:
             msg += " %s" % server.name
-        return term.on_bright_black(msg)
+        return msg
+        # term.on_bright_black(msg)
 
 
 def parsed(result):
@@ -308,7 +326,7 @@ def parsed(result):
 
     if hasattr(result, "text") and result.text[:4] == ")]}'":
         return json.loads(result.text[5:])
-    print("ERROR: %s " % (result.result_code))
+    term.print("ERROR: %s " % (result.result_code))
     sys.exit(1)
 
 
@@ -352,10 +370,9 @@ def parsed(result):
 # pylint: disable=unused-argument,too-many-arguments,too-many-locals
 def main(ctx, debug, incoming, server, abandon, force, abandon_age, user, merged):
     query = None
-    handler = logging.StreamHandler()
-    formatter = logging.Formatter("%(levelname)-8s %(message)s")
-    handler.setFormatter(formatter)
+    handler = RichHandler(show_time=False, show_path=False)
     LOG.addHandler(handler)
+
     time_now = datetime.datetime.now()
 
     LOG.warning("Called with %s", ctx.params)
@@ -383,12 +400,11 @@ def main(ctx, debug, incoming, server, abandon, force, abandon_age, user, merged
 
     logging.info("Query used: %s", query)
     gri = GRI(query=query, server=server)
-    print(gri.header())
+    term.print(gri.header())
     cnt = 0
 
     for review in sorted(gri.reviews):
-        # msg = term.on_color(cr.background()) + str(cr)
-        print(review)
+        term.print(str(review))
         if ctx.params["abandon"] and review.score < 1:
             cr_last_updated = review.data["updated"]
             time_cr_updated = datetime.datetime.strptime(
@@ -399,7 +415,7 @@ def main(ctx, debug, incoming, server, abandon, force, abandon_age, user, merged
                 review.abandon(dry=ctx.params["force"])
         LOG.debug(review.data)
         cnt += 1
-    print(term.bright_black("-- %d changes listed" % cnt))
+    term.print("-- %d changes listed" % cnt)
 
 
 if __name__ == "__main__":
