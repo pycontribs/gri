@@ -70,11 +70,8 @@ class GRI:
                 self.reviews.append(Review(record, item))
 
     def header(self):
-        msg = "GRI using %s servers:" % len(self.servers)
-        for server in self.servers:
-            msg += " %s" % server.name
-        return msg
-        # term.on_bright_black(msg)
+        srv_list = " ".join(s.name for s in self.servers)
+        return f"[dim]GRI using {len(self.servers)} servers: {srv_list}[/]"
 
 
 @click.command()
@@ -155,7 +152,7 @@ def main(ctx, debug, incoming, server, abandon, force, abandon_age, user, merged
                 review.abandon(dry=ctx.params["force"])
         LOG.debug(review.data)
         cnt += 1
-    term.print("-- %d changes listed" % cnt)
+    term.print(f"[dim]-- {cnt} changes listed[/]")
 
 
 if __name__ == "__main__":
