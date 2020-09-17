@@ -119,7 +119,6 @@ class GerritServer:
         )
 
     def query(self, query=None):
-        query += " status:open"
         payload = [
             ("q", query),
             ("o", "LABELS"),
@@ -339,6 +338,9 @@ def parsed(result):
 @click.option(
     "--incoming", "-i", default=False, help="Incoming reviews (not mine)", is_flag=True
 )
+@click.option(
+    "--merged", "-m", default=None, type=int, help="merged in the last number of days"
+)
 @click.option("--user", "-u", default="self", help="Query another user than self")
 @click.option(
     "--server",
@@ -348,7 +350,7 @@ def parsed(result):
 )
 @click.pass_context
 # pylint: disable=unused-argument,too-many-arguments,too-many-locals
-def main(ctx, debug, incoming, server, abandon, force, abandon_age, user):
+def main(ctx, debug, incoming, server, abandon, force, abandon_age, user, merged):
     query = None
     handler = logging.StreamHandler()
     formatter = logging.Formatter("%(levelname)-8s %(message)s")
@@ -368,11 +370,18 @@ def main(ctx, debug, incoming, server, abandon, force, abandon_age, user):
 
     if " " in user:
         user = f'"{user}"'
-    if incoming:
-        query = f"reviewer:{user}"
-    else:
-        query = f"owner:{user}"
 
+    query = ""
+    if incoming:
+        query += f"reviewer:{user}"
+    else:
+        query += f"owner:{user}"
+    if merged:
+        query += f" status:merged -age:{merged}d"
+    else:
+        query += " status:open"
+
+    logging.info("Query used: %s", query)
     gri = GRI(query=query, server=server)
     print(gri.header())
     cnt = 0
