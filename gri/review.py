@@ -1,15 +1,16 @@
 import datetime
+import logging
 import os
 import re
-import logging
 
 from gri.console import link
 
 LOG = logging.getLogger(__name__)
 
 
-class CR:
+class Review:
     """Defines a change-request or pull-request."""
+
     def __init__(self, data, server):
         self.data = data
         self.server = server

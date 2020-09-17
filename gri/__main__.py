@@ -12,7 +12,7 @@ from rich.logging import RichHandler
 from rich.theme import Theme
 
 from gri.gerrit import GerritServer
-from gri.review import CR
+from gri.review import Review
 
 theme = Theme(
     {
@@ -67,7 +67,7 @@ class GRI:
         for item in self.servers:
 
             for record in item.query(query=query):
-                self.reviews.append(CR(record, item))
+                self.reviews.append(Review(record, item))
 
     def header(self):
         msg = "GRI using %s servers:" % len(self.servers)
