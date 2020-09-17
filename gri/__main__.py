@@ -13,9 +13,9 @@ import requests
 from blessings import Terminal
 
 try:
-    from urllib.parse import urlparse
+    from urllib.parse import urlencode, urlparse
 except ImportError:
-    from urlparse import urlparse  # type: ignore
+    from urlparse import urlparse, urlencode  # type: ignore
 
 import yaml
 from requests.auth import HTTPBasicAuth, HTTPDigestAuth
@@ -119,13 +119,16 @@ class GerritServer:
         )
 
     def query(self, query=None):
-        query_map = {
-            None: r"a/changes/?q=owner:self%20status:open",
-            "incoming": r"a/changes/?q=reviewer:self%20status:open",  # noqa
-        }
+        query += " status:open"
+        payload = [
+            ("q", query),
+            ("o", "LABELS"),
+            ("o", "COMMIT_FOOTERS"),
+        ]
+        encoded = urlencode(payload, doseq=True, safe=":")
+        url = rf"{self.url}a/changes/?{encoded}"
         # %20NOT%20label:Code-Review>=0,self
-        query = self.url + query_map[query] + "&o=LABELS&o=COMMIT_FOOTERS"
-        return parsed(self.__session.get(query))
+        return parsed(self.__session.get(url))
 
 
 class CR:
@@ -336,6 +339,7 @@ def parsed(result):
 @click.option(
     "--incoming", "-i", default=False, help="Incoming reviews (not mine)", is_flag=True
 )
+@click.option("--user", "-u", default="self", help="Query another user than self")
 @click.option(
     "--server",
     "-s",
@@ -344,7 +348,7 @@ def parsed(result):
 )
 @click.pass_context
 # pylint: disable=unused-argument,too-many-arguments,too-many-locals
-def main(ctx, debug, incoming, server, abandon, force, abandon_age):
+def main(ctx, debug, incoming, server, abandon, force, abandon_age, user):
     query = None
     handler = logging.StreamHandler()
     formatter = logging.Formatter("%(levelname)-8s %(message)s")
@@ -361,8 +365,14 @@ def main(ctx, debug, incoming, server, abandon, force, abandon_age):
     #     msg += term.on_color(g) + "A"
     # print(msg)
     # # return
+
+    if " " in user:
+        user = f'"{user}"'
     if incoming:
-        query = "incoming"
+        query = f"reviewer:{user}"
+    else:
+        query = f"owner:{user}"
+
     gri = GRI(query=query, server=server)
     print(gri.header())
     cnt = 0
