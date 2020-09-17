@@ -181,6 +181,15 @@ class CR:
         if self.is_wip:
             self.score /= 100
 
+    def age(self) -> int:
+        """Return how many days passed since last update was made."""
+        time_now = datetime.datetime.now()
+        cr_last_updated = self.data["updated"]
+        time_cr_updated = datetime.datetime.strptime(
+            cr_last_updated[:-3], "%Y-%m-%d %H:%M:%S.%f"
+        )
+        return int((time_now - time_cr_updated).days)
+
     def __repr__(self):
         return str(self.number)
 
@@ -225,6 +234,8 @@ class CR:
         )
 
         msg = f"{prefix}[{self.background()}]{link(self.url, self.number)}[/]"
+
+        msg += f" [dim]{self.age():3}[/]"
 
         msg += f" [{ 'wip' if self.is_wip else 'normal' }]{self.short_project()}[/]"
 
@@ -373,8 +384,6 @@ def main(ctx, debug, incoming, server, abandon, force, abandon_age, user, merged
     handler = RichHandler(show_time=False, show_path=False)
     LOG.addHandler(handler)
 
-    time_now = datetime.datetime.now()
-
     LOG.warning("Called with %s", ctx.params)
     if debug:
         LOG.setLevel(level=logging.DEBUG)
@@ -406,12 +415,7 @@ def main(ctx, debug, incoming, server, abandon, force, abandon_age, user, merged
     for review in sorted(gri.reviews):
         term.print(str(review))
         if ctx.params["abandon"] and review.score < 1:
-            cr_last_updated = review.data["updated"]
-            time_cr_updated = datetime.datetime.strptime(
-                cr_last_updated[:-3], "%Y-%m-%d %H:%M:%S.%f"
-            )
-            cr_age = (time_now - time_cr_updated).days
-            if int(cr_age) > ctx.params["abandon_age"] and query != "incoming":
+            if review.age() > ctx.params["abandon_age"] and query != "incoming":
                 review.abandon(dry=ctx.params["force"])
         LOG.debug(review.data)
         cnt += 1
