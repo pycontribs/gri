@@ -1,14 +1,14 @@
-import os
-import netrc
-import requests
-import sys
 import json
+import netrc
+import os
+
+import requests
 from requests.auth import HTTPBasicAuth, HTTPDigestAuth
 
 try:
     from urllib.parse import urlencode, urlparse
 except ImportError:
-    from urlparse import urlparse, urlencode  # type: ignore
+    from urlparse import urlencode, urlparse  # type: ignore
 
 # Used only to force outdated Digest auth for servers not using standard auth
 KNOWN_SERVERS = {
