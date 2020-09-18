@@ -14,7 +14,6 @@ class Review:
     def __init__(self, data, server):
         self.data = data
         self.server = server
-        self.score = 1.0
 
         LOG.debug(data)
 
@@ -28,24 +27,36 @@ class Review:
         )
         self.url = "{}#/c/{}/".format(self.server.url, self.number)
 
+        # Secret ScoreRank implementation which aims to map any review on a
+        # scale from 0 to 1, where 1 is alredy merged, and 0 is something that
+        # willnever merge.
+        #
+        # We start from perfect and downgrate rating using multiplication as
+        # this assures we stick between [0,1]
+        self.score = 1.0
+        # disabled staring as it does not effectively affect chance of merging
+        # if not self.starred:
+        #     self.score *= 0.9
+
         self.labels = {}
         for label_name, label_data in data.get("labels", {}).items():
             label = Label(label_name, label_data)
             self.labels[label_name] = label
-            if label.abbr == "W":
-                self.score += label.value * 20
-            if label.abbr == "CR":
-                self.score += label.value * 10
-            if label.abbr == "V":
-                self.score += label.value * 5
-                if label.value == 0:
-                    self.score -= 100
-        if self.starred:
-            self.score += 10
+
+            if label.abbr == "V" and label.value < 1:
+                self.score *= 0.8 if label.value == 0 else 0.6
+            if label.abbr == "W" and label.value < 1:
+                self.score *= 0.95 if label.value == 0 else 0.5
+            if label.abbr == "CR" and label.value < 1:
+                self.score *= 0.8 if label.value == 0 else 0.3
+
+        # penalty for reviews over 7 days old
+        if self.age() > 7:
+            self.score *= 1 - (min(365, self.age()) / 365)
 
         # We just want to keep wip changes in the same are ~0..1 score.
         if self.is_wip:
-            self.score /= 100
+            self.score *= 0.05
 
     def age(self) -> int:
         """Return how many days passed since last update was made."""
@@ -131,7 +142,7 @@ class Review:
                 # we print only labels without 0 value
                 msg += " %s" % label
 
-        result.extend([msg.strip(), f" [dim]{self.score}[/]"])
+        result.extend([msg.strip(), f" [dim]{self.score*100:.0f}%[/]"])
 
         return result
 
