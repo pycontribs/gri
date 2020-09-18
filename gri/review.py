@@ -99,14 +99,14 @@ class Review:
         """Return review info as columns with rich text."""
 
         result = []
-        prefix = "%s%s" % (
-            "⭐" if self.starred else "  ",
-            " " * (8 - len(str(self.number))),
-        )
 
-        result.append(f"{prefix}[{self.background()}]{link(self.url, self.number)}[/]")
+        # avoid use of emoji due to:
+        # https://github.com/willmcgugan/rich/issues/148
+        star = "[bright_yellow]★[/] " if self.starred else ""
 
-        result.append(f"[dim]{self.age():3}[/]")
+        result.append(f"{star}[{self.background()}]{link(self.url, self.number)}[/]")
+
+        result.append(f"[dim]{self.age():3}[/]" if self.age() else "")
 
         msg = f"[{ 'wip' if self.is_wip else 'normal' }]{self.short_project()}[/]"
 
@@ -131,8 +131,7 @@ class Review:
                 # we print only labels without 0 value
                 msg += " %s" % label
 
-        msg += f" [dim]{self.score}[/]"
-        result.append(msg.strip())
+        result.extend([msg.strip(), f" [dim]{self.score}[/]"])
 
         return result
 

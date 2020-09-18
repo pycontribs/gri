@@ -13,6 +13,7 @@ from rich.logging import RichHandler
 from rich.table import Table
 from rich.theme import Theme
 
+from gri.console import TERMINAL_THEME
 from gri.gerrit import GerritServer
 from gri.review import Review
 
@@ -27,7 +28,7 @@ theme = Theme(
         "wip": "bold yellow",
     }
 )
-term = Console(theme=theme, highlighter=rich.highlighter.ReprHighlighter())
+term = Console(theme=theme, highlighter=rich.highlighter.ReprHighlighter(), record=True)
 
 LOG = logging.getLogger(__name__)
 
@@ -112,9 +113,17 @@ class GRI:
     default=None,
     help="[0,1,2] key in list of servers, Query a single server instead of all",
 )
+@click.option(
+    "--output",
+    "-o",
+    default=None,
+    help="Filename to dump the result in, currently only HTML is supported",
+)
 @click.pass_context
 # pylint: disable=unused-argument,too-many-arguments,too-many-locals
-def main(ctx, debug, incoming, server, abandon, force, abandon_age, user, merged):
+def main(
+    ctx, debug, incoming, server, abandon, force, abandon_age, user, merged, output
+):
     query = None
     handler = RichHandler(show_time=False, show_path=False)
     LOG.addHandler(handler)
@@ -148,10 +157,11 @@ def main(ctx, debug, incoming, server, abandon, force, abandon_age, user, merged
     cnt = 0
 
     table = Table(title="Reviews", border_style="grey15", box=box.MINIMAL)
-    table.add_column("Review")
+    table.add_column("Review", justify="right")
     table.add_column("Age")
     table.add_column("Project/Subject")
     table.add_column("Meta")
+    table.add_column("Score", justify="right")
 
     for review in sorted(gri.reviews):
         table.add_row(*review.as_columns())
@@ -162,6 +172,9 @@ def main(ctx, debug, incoming, server, abandon, force, abandon_age, user, merged
         cnt += 1
     term.print(table)
     term.print(f"[dim]-- {cnt} changes listed[/]")
+
+    if output:
+        term.save_html(path=output, theme=TERMINAL_THEME)
 
 
 if __name__ == "__main__":
