@@ -33,28 +33,25 @@ Currently the tool loads gerrit servers defined in [`~/.gertty.yaml`][1] but
 uses credentials from `~/.netrc` file.
 
 ```shell
-$ gri --help                                                                                                                                     [10:35:20]
-Usage: gri [OPTIONS]
+$ gri --help
+Usage: gri [OPTIONS] COMMAND [ARGS]...
 
 Options:
-  -d, --debug                Debug mode
+  -i, --incoming             Incoming reviews (not mine)
+  -m, --merged INTEGER       merged in the last number of days
   -a, --abandon              Abandon changes (delete for drafts) when they are
                              >90 days old and with negative score. Requires -f
                              to perform the action.
-
   -z, --abandon-age INTEGER  default=90, number of days for which changes are
                              subject to abandon
-
-  -f, --force                Perform potentially destructive actions.
-  -i, --incoming             Incoming reviews (not mine)
-  -m, --merged INTEGER       merged in the last number of days
-  -u, --user TEXT            Query another user than self
-  -s, --server TEXT          [0,1,2] key in list of servers, Query a single
+  General options:
+    -u, --user TEXT          Query another user than self
+    -s, --server TEXT        [0,1,2] key in list of servers, Query a single
                              server instead of all
-
-  -o, --output TEXT          Filename to dump the result in, currently only
+    -o, --output TEXT        Filename to dump the result in, currently only
                              HTML is supported
-
+    -f, --force              Perform potentially destructive actions.
+    -d, --debug              Debug mode
   --help                     Show this message and exit.
 ```
 

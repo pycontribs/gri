@@ -49,6 +49,8 @@ repos:
         entry: mypy gri/
         pass_filenames: false
         additional_dependencies:
+          - click-help-colors
+          - click-option-group
           - packaging
           - rich
   - repo: https://github.com/pre-commit/mirrors-pylint
