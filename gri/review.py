@@ -66,10 +66,13 @@ class Review:
             return self.data["_number"]
         return None
 
-    def short_project(self):
-        return re.search("([^/]*)$", self.project).group(0)
+    def short_project(self) -> str:
+        match = re.search("([^/]*)$", self.project)
+        if match:
+            return match.group(0)
+        return self.project
 
-    def background(self):
+    def background(self) -> str:
         styles = [
             "normal",
             "low",
@@ -92,18 +95,20 @@ class Review:
                 break
         return styles[i]
 
-    def __str__(self):
+    def as_columns(self) -> list:
+        """Return review info as columns with rich text."""
 
+        result = []
         prefix = "%s%s" % (
             "⭐" if self.starred else "  ",
             " " * (8 - len(str(self.number))),
         )
 
-        msg = f"{prefix}[{self.background()}]{link(self.url, self.number)}[/]"
+        result.append(f"{prefix}[{self.background()}]{link(self.url, self.number)}[/]")
 
-        msg += f" [dim]{self.age():3}[/]"
+        result.append(f"[dim]{self.age():3}[/]")
 
-        msg += f" [{ 'wip' if self.is_wip else 'normal' }]{self.short_project()}[/]"
+        msg = f"[{ 'wip' if self.is_wip else 'normal' }]{self.short_project()}[/]"
 
         if self.branch != "master":
             msg += f" [branch][{self.branch}][/]"
@@ -118,15 +123,18 @@ class Review:
 
         if not self.mergeable:
             msg += " [veryhigh]cannot-merge[/]"
+        result.append(msg)
 
+        msg = ""
         for label in self.labels.values():
             if label.value:
                 # we print only labels without 0 value
                 msg += " %s" % label
 
         msg += f" [dim]{self.score}[/]"
+        result.append(msg.strip())
 
-        return msg
+        return result
 
     def is_reviewed(self):
         return self.data["labels"]["Code-Review"]["value"] > 1

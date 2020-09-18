@@ -7,8 +7,10 @@ import sys
 import click
 import rich
 import yaml
+from rich import box
 from rich.console import Console
 from rich.logging import RichHandler
+from rich.table import Table
 from rich.theme import Theme
 
 from gri.gerrit import GerritServer
@@ -145,13 +147,20 @@ def main(ctx, debug, incoming, server, abandon, force, abandon_age, user, merged
     term.print(gri.header())
     cnt = 0
 
+    table = Table(title="Reviews", border_style="grey15", box=box.MINIMAL)
+    table.add_column("Review")
+    table.add_column("Age")
+    table.add_column("Project/Subject")
+    table.add_column("Meta")
+
     for review in sorted(gri.reviews):
-        term.print(str(review))
+        table.add_row(*review.as_columns())
         if ctx.params["abandon"] and review.score < 1:
             if review.age() > ctx.params["abandon_age"] and query != "incoming":
                 review.abandon(dry=ctx.params["force"])
         LOG.debug(review.data)
         cnt += 1
+    term.print(table)
     term.print(f"[dim]-- {cnt} changes listed[/]")
 
 
