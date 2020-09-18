@@ -8,7 +8,6 @@ import click
 import rich
 import yaml
 from click_help_colors import HelpColorsGroup
-from click_option_group import optgroup
 from rich import box
 from rich.console import Console
 from rich.logging import RichHandler
@@ -79,33 +78,12 @@ class GRI:
         return f"[dim]GRI using {len(self.servers)} servers: {srv_list}[/]"
 
 
-def click_group_ex():
-    """Return extended version of click.group()."""
-    # Color coding used to group command types, documented only here as we may
-    # decide to change them later.
-    # green : (default) as sequence step
-    # blue : molecule own command, not dependent on scenario
-    # yellow : special commands, like full test sequence, or login
-    return click.group(
-        cls=HelpColorsGroup,
-        # Workaround to disable click help line truncation to ~80 chars
-        # https://github.com/pallets/click/issues/486
-        context_settings=dict(max_content_width=9999),
-        help_headers_color="yellow",
-        help_options_color="green",
-        help_options_custom_colors={
-            "drivers": "blue",
-            "init": "blue",
-            "list": "blue",
-            "matrix": "blue",
-            "login": "bright_yellow",
-            "reset": "blue",
-            "test": "bright_yellow",
-        },
-    )
-
-
-@click_group_ex()  # type: ignore
+@click.command(
+    cls=HelpColorsGroup,
+    context_settings=dict(max_content_width=9999),
+    help_headers_color="yellow",
+    help_options_color="green",
+)
 @click.option(
     "--incoming", "-i", default=False, help="Incoming reviews (not mine)", is_flag=True
 )
@@ -126,33 +104,33 @@ def click_group_ex():
     default=90,
     help="default=90, number of days for which changes are subject to abandon",
 )
-@optgroup.group("General options")
-@optgroup.option("--user", "-u", default="self", help="Query another user than self")
-@optgroup.option(
+@click.option("--user", "-u", default="self", help="Query another user than self")
+@click.option(
     "--server",
     "-s",
     default=None,
     help="[0,1,2] key in list of servers, Query a single server instead of all",
 )
-@optgroup.option(
+@click.option(
     "--output",
     "-o",
     default=None,
     help="Filename to dump the result in, currently only HTML is supported",
 )
-@optgroup.option(
+@click.option(
     "--force",
     "-f",
     default=False,
     help="Perform potentially destructive actions.",
     is_flag=True,
 )
-@optgroup.option("--debug", "-d", default=False, help="Debug mode", is_flag=True)
+@click.option("--debug", "-d", default=False, help="Debug mode", is_flag=True)
 @click.pass_context
 # pylint: disable=unused-argument,too-many-arguments,too-many-locals
 def main(
     ctx, debug, incoming, server, abandon, force, abandon_age, user, merged, output
 ):
+    print(100)
     query = None
     handler = RichHandler(show_time=False, show_path=False)
     LOG.addHandler(handler)
