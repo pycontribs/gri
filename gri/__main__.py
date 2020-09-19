@@ -32,7 +32,7 @@ theme = Theme(
 term = Console(theme=theme, highlighter=rich.highlighter.ReprHighlighter(), record=True)
 CFG_FILE = "~/.gertty.yaml"
 
-LOG = logging.getLogger(__name__)
+LOG = logging.getLogger(__package__)
 
 
 class Config(dict):
@@ -55,10 +55,10 @@ class Config(dict):
 class App:
     def __init__(self, ctx):
         self.ctx = ctx
-        self.cfg = Config(file=ctx.params['config'])
+        self.cfg = Config(file=ctx.params["config"])
         self.servers = []
-        self.user = ctx.params['user']
-        server = ctx.params['server']
+        self.user = ctx.params["user"]
+        server = ctx.params["server"]
         for srv in (
             self.cfg["servers"]
             if server is None
@@ -149,9 +149,8 @@ class CustomGroup(HelpColorsGroup):
 )
 @click.option("--user", "-u", default="self", help="Query another user than self")
 @click.option(
-    "--config",
-    default=CFG_FILE,
-    help=f"Config file to use, defaults to {CFG_FILE}")
+    "--config", default=CFG_FILE, help=f"Config file to use, defaults to {CFG_FILE}"
+)
 @click.option(
     "--server",
     "-s",
@@ -180,11 +179,11 @@ def cli(ctx, **kwargs):
     LOG.addHandler(handler)
 
     LOG.warning("Called with %s", ctx.params)
-    if ctx.params['debug']:
+    if ctx.params["debug"]:
         LOG.setLevel(level=logging.DEBUG)
 
-    if " " in ctx.params['user']:
-        ctx.params['user'] = f"\"{ctx.params['user']}\""
+    if " " in ctx.params["user"]:
+        ctx.params["user"] = f"\"{ctx.params['user']}\""
 
     # import pdb
     # pdb.set_trace()
@@ -194,8 +193,8 @@ def cli(ctx, **kwargs):
         LOG.info("I was invoked without subcommand, assuming implicit `owned` command")
         ctx.invoke(owned)
 
-    if ctx.params['output']:
-        term.save_html(path=ctx.params['output'], theme=TERMINAL_THEME)
+    if ctx.params["output"]:
+        term.save_html(path=ctx.params["output"], theme=TERMINAL_THEME)
 
 
 @cli.resultcallback()

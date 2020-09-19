@@ -5,7 +5,7 @@ import re
 
 from gri.console import link
 
-LOG = logging.getLogger(__name__)
+LOG = logging.getLogger(__package__)
 
 
 class Review:

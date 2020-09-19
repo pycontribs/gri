@@ -1,9 +1,12 @@
 import json
+import logging
 import netrc
 import os
+import sys
 
 import requests
 from requests.auth import HTTPBasicAuth, HTTPDigestAuth
+from requests.exceptions import HTTPError
 
 try:
     from urllib.parse import urlencode, urlparse
@@ -16,6 +19,7 @@ KNOWN_SERVERS = {
     "https://code.engineering.redhat.com/gerrit/": {"auth": HTTPDigestAuth},
     "verify": False,
 }
+LOG = logging.getLogger(__package__)
 
 
 # pylint: disable=too-few-public-methods
@@ -39,17 +43,22 @@ class GerritServer:
         # workaround for netrc error: OSError("Could not find .netrc: $HOME is not set")
         if "HOME" not in os.environ:
             os.environ["HOME"] = os.path.expanduser("~")
+        netrc_file = os.path.expanduser("~/.netrc")
 
-        token = netrc.netrc().authenticators(parsed_uri.netloc)
-
-        # saving username (may be needed later)
-        self.username = token[0]
+        try:
+            token = netrc.netrc().authenticators(parsed_uri.netloc)
+        except FileNotFoundError:
+            token = None
 
         if not token:
-            raise SystemError(
-                f"Unable to load credentials for {url} from ~/.netrc file"
+            LOG.error(
+                "Unable to load credentials for %s from %s file, "
+                "likely to receive 401 errors later.",
+                url,
+                netrc_file,
             )
-        self.__session.auth = self.auth_class(token[0], token[2])
+        else:
+            self.__session.auth = self.auth_class(token[0], token[2])
 
         self.__session.headers.update(
             {
@@ -71,7 +80,11 @@ class GerritServer:
 
     @staticmethod
     def parsed(result):
-        result.raise_for_status()
+        try:
+            result.raise_for_status()
+        except HTTPError as exc:
+            LOG.error(exc)
+            sys.exit(2)
 
         if hasattr(result, "text") and result.text[:4] == ")]}'":
             return json.loads(result.text[5:])
