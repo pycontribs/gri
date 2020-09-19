@@ -52,7 +52,8 @@ class Config(dict):
 
 # pylint: disable=too-few-public-methods
 class App:
-    def __init__(self, server=None, user=None):
+    def __init__(self, ctx, server=None, user=None):
+        self.ctx = ctx
         self.cfg = Config()
         self.servers = []
         self.user = user
@@ -83,7 +84,7 @@ class App:
         srv_list = " ".join(s.name for s in self.servers)
         return f"[dim]GRI using {len(self.servers)} servers: {srv_list}[/]"
 
-    def report(self, query=None, title="Reviews"):
+    def report(self, query=None, title="Reviews", max_score=1, action=None):
         """Produce a table report based on a query."""
         if query:
             self.query(query)
@@ -98,13 +99,24 @@ class App:
         table.add_column("Score", justify="right")
 
         for review in sorted(self.reviews):
-            table.add_row(*review.as_columns())
-            # if ctx.params["abandon"] and review.score < 1:
-            #     if review.age() > ctx.params["abandon_age"] and query != "incoming":
-            #         review.abandon(dry=ctx.params["force"])
-            LOG.debug(review.data)
-            cnt += 1
-        term.print(table)
+            if review.score <= max_score:
+                table.add_row(*review.as_columns())
+                if action:
+                    LOG.warning(
+                        "Performing %s on %s %s",
+                        action,
+                        review,
+                        "(dry)" if not self.ctx.params["force"] else "",
+                    )
+                    if self.ctx.params["force"]:
+                        getattr(review, action)()
+                LOG.debug(review.data)
+                cnt += 1
+
+        # Printing empty tables makes no sense
+        if cnt:
+            term.print(table)
+
         extra = f" from: [cyan]{query}[/]" if query else ""
         term.print(f"[dim]-- {cnt} changes listed{extra}[/]")
 
@@ -132,20 +144,6 @@ class CustomGroup(HelpColorsGroup):
     context_settings=dict(max_content_width=9999),
     chain=True,
 )
-@click.option(
-    "--abandon",
-    "-a",
-    default=False,
-    help="Abandon changes (delete for drafts) when they are >90 days old "
-    "and with negative score. Requires -f to perform the action.",
-    is_flag=True,
-)
-@click.option(
-    "--abandon-age",
-    "-z",
-    default=90,
-    help="default=90, number of days for which changes are subject to abandon",
-)
 @click.option("--user", "-u", default="self", help="Query another user than self")
 @click.option(
     "--server",
@@ -169,7 +167,7 @@ class CustomGroup(HelpColorsGroup):
 @click.option("--debug", "-d", default=False, help="Debug mode", is_flag=True)
 @click.pass_context
 # pylint: disable=unused-argument,too-many-arguments,too-many-locals
-def cli(ctx, debug, server, abandon, force, abandon_age, user, output):
+def cli(ctx, debug, server, force, user, output):
 
     handler = RichHandler(show_time=False, show_path=False)
     LOG.addHandler(handler)
@@ -181,7 +179,9 @@ def cli(ctx, debug, server, abandon, force, abandon_age, user, output):
     if " " in user:
         user = f'"{user}"'
 
-    ctx.obj = App(server=server, user=user)
+    # import pdb
+    # pdb.set_trace()
+    ctx.obj = App(ctx=ctx, server=server, user=user)
 
     if ctx.invoked_subcommand is None:
         LOG.info("I was invoked without subcommand, assuming implicit `owned` command")
@@ -225,6 +225,28 @@ def merged(ctx, age):
     query += f" owner:{ctx.obj.user}"
 
     ctx.obj.report(query=query, title=f"Merged Reviews ({age}d)")
+
+
+@cli.command()
+@click.pass_context
+@click.option(
+    "--age",
+    "-z",
+    default=90,
+    help="default=90, number of days for which changes are subject to abandon",
+)
+def abandon(ctx, age):
+    """Abandon changes (delete for drafts) when they are >90 days old "
+    "and with very low score. Requires -f to perform the action."""
+    query = f" status:open age:{age}d"
+    query += f" owner:{ctx.obj.user}"
+
+    ctx.obj.report(
+        query=query,
+        title=f"Reviews to abandon ({age}d)",
+        max_score=0.4,
+        action="abandon",
+    )
 
 
 if __name__ == "__main__":
