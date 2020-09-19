@@ -51,10 +51,11 @@ class Config(dict):
 
 
 # pylint: disable=too-few-public-methods
-class GRI:
-    def __init__(self, query=None, server=None):
+class App:
+    def __init__(self, server=None, user=None):
         self.cfg = Config()
         self.servers = []
+        self.user = user
         for srv in (
             self.cfg["servers"]
             if server is None
@@ -68,6 +69,11 @@ class GRI:
             sys.exit(1)
 
         self.reviews = list()
+        term.print(self.header())
+
+    def query(self, query):
+        """Performs a query and stores result inside reviews attribute"""
+        self.reviews = list()
         for item in self.servers:
 
             for record in item.query(query=query):
@@ -77,18 +83,54 @@ class GRI:
         srv_list = " ".join(s.name for s in self.servers)
         return f"[dim]GRI using {len(self.servers)} servers: {srv_list}[/]"
 
+    def report(self, query=None, title="Reviews"):
+        """Produce a table report based on a query."""
+        if query:
+            self.query(query)
 
-@click.command(
-    cls=HelpColorsGroup,
-    context_settings=dict(max_content_width=9999),
+        cnt = 0
+
+        table = Table(title=title, border_style="grey15", box=box.MINIMAL)
+        table.add_column("Review", justify="right")
+        table.add_column("Age")
+        table.add_column("Project/Subject")
+        table.add_column("Meta")
+        table.add_column("Score", justify="right")
+
+        for review in sorted(self.reviews):
+            table.add_row(*review.as_columns())
+            # if ctx.params["abandon"] and review.score < 1:
+            #     if review.age() > ctx.params["abandon_age"] and query != "incoming":
+            #         review.abandon(dry=ctx.params["force"])
+            LOG.debug(review.data)
+            cnt += 1
+        term.print(table)
+        extra = f" from: [cyan]{query}[/]" if query else ""
+        term.print(f"[dim]-- {cnt} changes listed{extra}[/]")
+
+
+class CustomGroup(HelpColorsGroup):
+    def get_command(self, ctx, cmd_name):
+        """Undocumented command aliases for lazy users"""
+        aliases = {
+            "o": owned,
+            "m": merged,
+            "i": incoming,
+        }
+        try:
+            cmd_name = aliases[cmd_name].name
+        except KeyError:
+            pass
+        return super().get_command(ctx, cmd_name)
+
+
+@click.group(
+    cls=CustomGroup,
+    invoke_without_command=True,
     help_headers_color="yellow",
     help_options_color="green",
-)
-@click.option(
-    "--incoming", "-i", default=False, help="Incoming reviews (not mine)", is_flag=True
-)
-@click.option(
-    "--merged", "-m", default=None, type=int, help="merged in the last number of days"
+    context_settings=dict(max_content_width=9999),
+    chain=True,
 )
 @click.option(
     "--abandon",
@@ -127,63 +169,64 @@ class GRI:
 @click.option("--debug", "-d", default=False, help="Debug mode", is_flag=True)
 @click.pass_context
 # pylint: disable=unused-argument,too-many-arguments,too-many-locals
-def main(
-    ctx, debug, incoming, server, abandon, force, abandon_age, user, merged, output
-):
-    print(100)
-    query = None
+def cli(ctx, debug, server, abandon, force, abandon_age, user, output):
+
     handler = RichHandler(show_time=False, show_path=False)
     LOG.addHandler(handler)
 
     LOG.warning("Called with %s", ctx.params)
     if debug:
         LOG.setLevel(level=logging.DEBUG)
-    # msg =""
-    # gradient = [22, 58, 94, 130, 166, 196, 124]
-    # for g in gradient:
-    #     msg += term.on_color(g) + "A"
-    # print(msg)
-    # # return
 
     if " " in user:
         user = f'"{user}"'
 
-    query = ""
-    if incoming:
-        query += f"reviewer:{user}"
-    else:
-        query += f"owner:{user}"
-    if merged:
-        query += f" status:merged -age:{merged}d"
-    else:
-        query += " status:open"
+    ctx.obj = App(server=server, user=user)
 
-    logging.info("Query used: %s", query)
-    gri = GRI(query=query, server=server)
-    term.print(gri.header())
-    cnt = 0
-
-    table = Table(title="Reviews", border_style="grey15", box=box.MINIMAL)
-    table.add_column("Review", justify="right")
-    table.add_column("Age")
-    table.add_column("Project/Subject")
-    table.add_column("Meta")
-    table.add_column("Score", justify="right")
-
-    for review in sorted(gri.reviews):
-        table.add_row(*review.as_columns())
-        if ctx.params["abandon"] and review.score < 1:
-            if review.age() > ctx.params["abandon_age"] and query != "incoming":
-                review.abandon(dry=ctx.params["force"])
-        LOG.debug(review.data)
-        cnt += 1
-    term.print(table)
-    term.print(f"[dim]-- {cnt} changes listed[/]")
+    if ctx.invoked_subcommand is None:
+        LOG.info("I was invoked without subcommand, assuming implicit `owned` command")
+        ctx.invoke(owned)
 
     if output:
         term.save_html(path=output, theme=TERMINAL_THEME)
 
 
+@cli.command()
+@click.pass_context
+def owned(ctx):
+    """Changes originated from current user (implicit)"""
+    query = "status:open"
+    query += f" owner:{ctx.obj.user}"
+    if ctx.obj.user == "self":
+        title = "Own reviews"
+    else:
+        title = f"Reviews owned by {ctx.obj.user}"
+    ctx.obj.report(query=query, title=title)
+
+
+@cli.command()
+@click.pass_context
+def incoming(ctx):
+    """Incoming reviews (not mine)"""
+    query = f"reviewer:{ctx.obj.user} status:open"
+    ctx.obj.report(query=query, title="Merged Reviews")
+
+
+@cli.command()
+@click.pass_context
+@click.option(
+    "--age",
+    default=1,
+    help="Number of days to look back, adds -age:NUM",
+)
+def merged(ctx, age):
+    """merged in the last number of days"""
+    query = f" status:merged -age:{age}d"
+    query += f" owner:{ctx.obj.user}"
+
+    ctx.obj.report(query=query, title=f"Merged Reviews ({age}d)")
+
+
 if __name__ == "__main__":
 
-    main()  # pylint: disable=no-value-for-parameter
+    cli()  # pylint: disable=no-value-for-parameter
