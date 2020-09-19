@@ -132,7 +132,7 @@ class Review:
             )
             msg += f" {link(topic_url, self.topic)}"
 
-        if not self.mergeable:
+        if self.status == "NEW" and not self.mergeable:
             msg += " [veryhigh]cannot-merge[/]"
         result.append(msg)
 
