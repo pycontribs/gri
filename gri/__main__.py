@@ -72,7 +72,7 @@ class App:
         self.reviews = list()
         term.print(self.header())
 
-    def query(self, query):
+    def run_query(self, query):
         """Performs a query and stores result inside reviews attribute"""
         self.reviews = list()
         for item in self.servers:
@@ -87,11 +87,11 @@ class App:
     def report(self, query=None, title="Reviews", max_score=1, action=None):
         """Produce a table report based on a query."""
         if query:
-            self.query(query)
+            self.run_query(query)
 
         cnt = 0
 
-        table = Table(title=title, border_style="grey15", box=box.MINIMAL)
+        table = Table(title=title, border_style="grey15", box=box.MINIMAL, expand=True)
         table.add_column("Review", justify="right")
         table.add_column("Age")
         table.add_column("Project/Subject")
@@ -115,6 +115,7 @@ class App:
 
         # Printing empty tables makes no sense
         if cnt:
+            term.print()
             term.print(table)
 
         extra = f" from: [cyan]{query}[/]" if query else ""
@@ -191,6 +192,14 @@ def cli(ctx, debug, server, force, user, output):
         term.save_html(path=output, theme=TERMINAL_THEME)
 
 
+@cli.resultcallback()
+def process_result(result, **kwargs):  # pylint: disable=unused-argument
+    output = kwargs["output"]
+    if kwargs["output"]:
+        term.save_html(path=output, theme=TERMINAL_THEME)
+        LOG.info("Report saved to %s", output)
+
+
 @cli.command()
 @click.pass_context
 def owned(ctx):
@@ -207,9 +216,9 @@ def owned(ctx):
 @cli.command()
 @click.pass_context
 def incoming(ctx):
-    """Incoming reviews (not mine)"""
+    """Incoming reviews"""
     query = f"reviewer:{ctx.obj.user} status:open"
-    ctx.obj.report(query=query, title="Merged Reviews")
+    ctx.obj.report(query=query, title=incoming.__doc__)
 
 
 @cli.command()
@@ -220,11 +229,35 @@ def incoming(ctx):
     help="Number of days to look back, adds -age:NUM",
 )
 def merged(ctx, age):
-    """merged in the last number of days"""
+    """Merged in the last number of days"""
     query = f" status:merged -age:{age}d"
     query += f" owner:{ctx.obj.user}"
 
     ctx.obj.report(query=query, title=f"Merged Reviews ({age}d)")
+
+
+# @cli.command()
+# @click.pass_context
+# def custom(ctx):
+#     """Custom query"""
+#     query = f"cc:{ctx.obj.user} status:open"
+#     ctx.obj.report(query=query, title="Custom query")
+
+
+@cli.command()
+@click.pass_context
+def watched(ctx):
+    """Watched reviews based on server side filters"""
+    query = f"watchedby:{ctx.obj.user} status:open"
+    ctx.obj.report(query=query, title=watched.__doc__)
+
+
+@cli.command()
+@click.pass_context
+def draft(ctx):
+    """Draft reviews or with draft comments."""
+    query = "status:open owner:self has:draft OR draftby:self"
+    ctx.obj.report(query=query, title=draft.__doc__)
 
 
 @cli.command()
@@ -244,7 +277,7 @@ def abandon(ctx, age):
     ctx.obj.report(
         query=query,
         title=f"Reviews to abandon ({age}d)",
-        max_score=0.4,
+        max_score=0.1,
         action="abandon",
     )
 
