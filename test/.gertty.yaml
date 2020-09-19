@@ -1,0 +1,5 @@
+servers:
+  - name: gerrithub
+    url: https://review.gerrithub.io/
+    username: johndoe
+    password: CHANGEME
