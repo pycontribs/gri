@@ -30,14 +30,15 @@ theme = Theme(
     }
 )
 term = Console(theme=theme, highlighter=rich.highlighter.ReprHighlighter(), record=True)
+CFG_FILE = "~/.gertty.yaml"
 
 LOG = logging.getLogger(__name__)
 
 
 class Config(dict):
-    def __init__(self):
+    def __init__(self, file):
         super().__init__()
-        self.update(self.load_config("~/.gertty.yaml"))
+        self.update(self.load_config(file))
 
     @staticmethod
     def load_config(config_file):
@@ -52,11 +53,12 @@ class Config(dict):
 
 # pylint: disable=too-few-public-methods
 class App:
-    def __init__(self, ctx, server=None, user=None):
+    def __init__(self, ctx):
         self.ctx = ctx
-        self.cfg = Config()
+        self.cfg = Config(file=ctx.params['config'])
         self.servers = []
-        self.user = user
+        self.user = ctx.params['user']
+        server = ctx.params['server']
         for srv in (
             self.cfg["servers"]
             if server is None
@@ -147,6 +149,10 @@ class CustomGroup(HelpColorsGroup):
 )
 @click.option("--user", "-u", default="self", help="Query another user than self")
 @click.option(
+    "--config",
+    default=CFG_FILE,
+    help=f"Config file to use, defaults to {CFG_FILE}")
+@click.option(
     "--server",
     "-s",
     default=None,
@@ -168,28 +174,28 @@ class CustomGroup(HelpColorsGroup):
 @click.option("--debug", "-d", default=False, help="Debug mode", is_flag=True)
 @click.pass_context
 # pylint: disable=unused-argument,too-many-arguments,too-many-locals
-def cli(ctx, debug, server, force, user, output):
+def cli(ctx, **kwargs):
 
     handler = RichHandler(show_time=False, show_path=False)
     LOG.addHandler(handler)
 
     LOG.warning("Called with %s", ctx.params)
-    if debug:
+    if ctx.params['debug']:
         LOG.setLevel(level=logging.DEBUG)
 
-    if " " in user:
-        user = f'"{user}"'
+    if " " in ctx.params['user']:
+        ctx.params['user'] = f"\"{ctx.params['user']}\""
 
     # import pdb
     # pdb.set_trace()
-    ctx.obj = App(ctx=ctx, server=server, user=user)
+    ctx.obj = App(ctx=ctx)
 
     if ctx.invoked_subcommand is None:
         LOG.info("I was invoked without subcommand, assuming implicit `owned` command")
         ctx.invoke(owned)
 
-    if output:
-        term.save_html(path=output, theme=TERMINAL_THEME)
+    if ctx.params['output']:
+        term.save_html(path=ctx.params['output'], theme=TERMINAL_THEME)
 
 
 @cli.resultcallback()
@@ -230,9 +236,7 @@ def incoming(ctx):
 )
 def merged(ctx, age):
     """Merged in the last number of days"""
-    query = f" status:merged -age:{age}d"
-    query += f" owner:{ctx.obj.user}"
-
+    query = f"status:merged -age:{age}d owner:{ctx.obj.user}"
     ctx.obj.report(query=query, title=f"Merged Reviews ({age}d)")
 
 
@@ -271,8 +275,7 @@ def draft(ctx):
 def abandon(ctx, age):
     """Abandon changes (delete for drafts) when they are >90 days old "
     "and with very low score. Requires -f to perform the action."""
-    query = f" status:open age:{age}d"
-    query += f" owner:{ctx.obj.user}"
+    query = f"status:open age:{age}d owner:{ctx.obj.user}"
 
     ctx.obj.report(
         query=query,
