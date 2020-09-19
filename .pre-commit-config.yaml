@@ -1,6 +1,6 @@
 repos:
   - repo: https://github.com/markdownlint/markdownlint
-    sha: v0.11.0
+    rev: v0.11.0
     hooks:
       - id: markdownlint
   - repo: https://github.com/pre-commit/mirrors-isort
