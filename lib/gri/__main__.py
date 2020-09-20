@@ -14,7 +14,7 @@ from rich.logging import RichHandler
 from rich.table import Table
 from rich.theme import Theme
 
-from gri.console import TERMINAL_THEME
+from gri.console import TERMINAL_THEME, get_logging_level
 from gri.gerrit import GerritServer
 from gri.review import Review
 
@@ -170,7 +170,15 @@ class CustomGroup(HelpColorsGroup):
     help="Perform potentially destructive actions.",
     is_flag=True,
 )
-@click.option("--debug", "-d", default=False, help="Debug mode", is_flag=True)
+@click.option(
+    "-q", "--quiet", count=True,
+    help="Reduce verbosity level, can be specified twice.")
+@click.option(
+    "-d", "--debug", default=False,
+    help="Debug mode (same as -vvv)", is_flag=True)
+@click.option(
+    "-v", "--verbose", count=True,
+    help="Increase verbosity level",)
 @click.pass_context
 # pylint: disable=unused-argument,too-many-arguments,too-many-locals
 def cli(ctx, **kwargs):
@@ -178,9 +186,8 @@ def cli(ctx, **kwargs):
     handler = RichHandler(show_time=False, show_path=False)
     LOG.addHandler(handler)
 
-    LOG.warning("Called with %s", ctx.params)
-    if ctx.params["debug"]:
-        LOG.setLevel(level=logging.DEBUG)
+    LOG.setLevel(get_logging_level(ctx))
+    LOG.info("Called with %s", ctx.params)
 
     if " " in ctx.params["user"]:
         ctx.params["user"] = f"\"{ctx.params['user']}\""
@@ -190,7 +197,7 @@ def cli(ctx, **kwargs):
     ctx.obj = App(ctx=ctx)
 
     if ctx.invoked_subcommand is None:
-        LOG.info("I was invoked without subcommand, assuming implicit `owned` command")
+        LOG.debug("I was invoked without subcommand, assuming implicit `owned` command")
         ctx.invoke(owned)
 
     if ctx.params["output"]:
@@ -272,8 +279,8 @@ def draft(ctx):
     help="default=90, number of days for which changes are subject to abandon",
 )
 def abandon(ctx, age):
-    """Abandon changes (delete for drafts) when they are >90 days old "
-    "and with very low score. Requires -f to perform the action."""
+    """Abandon changes (delete for drafts) when they are >90 days old
+    and with very low score. Requires -f to perform the action."""
     query = f"status:open age:{age}d owner:{ctx.obj.user}"
 
     ctx.obj.report(

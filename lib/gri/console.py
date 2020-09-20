@@ -1,3 +1,5 @@
+import logging
+
 from rich.terminal_theme import TerminalTheme
 
 TERMINAL_THEME = TerminalTheme(
@@ -28,3 +30,28 @@ TERMINAL_THEME = TerminalTheme(
 
 def link(url: str, name: str) -> str:
     return f"[link={url}]{name}[/link]"
+
+
+def get_logging_level(ctx) -> int:
+    verbosity = ctx.params["verbose"]
+    if ctx.params["debug"]:
+        verbosity = 4
+    elif ctx.params["quiet"]:
+        verbosity -= ctx.params["quiet"]
+
+    if verbosity >= 4:
+        level = 1  # aka SPAM
+    elif verbosity >= 3:
+        level = logging.DEBUG  # 10
+    elif verbosity >= 2:
+        level = 25  # 25
+    elif verbosity >= 1:
+        level = logging.INFO  # 20
+    elif verbosity == -1:
+        level = logging.WARNING  # 30
+    elif verbosity < -1:
+        level = logging.ERROR  # 40
+    else:
+        level = logging.INFO
+
+    return level
