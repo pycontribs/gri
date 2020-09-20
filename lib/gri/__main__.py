@@ -5,31 +5,18 @@ import os
 import sys
 
 import click
-import rich
 import yaml
 from click_help_colors import HelpColorsGroup
 from rich import box
-from rich.console import Console
 from rich.logging import RichHandler
+from rich.markdown import Markdown
 from rich.table import Table
-from rich.theme import Theme
 
-from gri.console import TERMINAL_THEME, get_logging_level
+from gri.console import TERMINAL_THEME, bootstrap, get_logging_level
 from gri.gerrit import GerritServer
 from gri.review import Review
 
-theme = Theme(
-    {
-        "normal": "",  # No or minor danger
-        "moderate": "yellow",  # Moderate danger
-        "considerable": "dark_orange",  # Considerable danger
-        "high": "red",  # High danger
-        "veryhigh": "dim red",  # Very high danger
-        "branch": "magenta",
-        "wip": "bold yellow",
-    }
-)
-term = Console(theme=theme, highlighter=rich.highlighter.ReprHighlighter(), record=True)
+term = bootstrap()
 CFG_FILE = "~/.gertty.yaml"
 
 LOG = logging.getLogger(__package__)
@@ -123,6 +110,12 @@ class App:
         extra = f" from: [cyan]{query}[/]" if query else ""
         term.print(f"[dim]-- {cnt} changes listed{extra}[/]")
 
+    def display_config(self):
+        msg = yaml.dump(
+            dict(self.cfg), default_flow_style=False, tags=False, sort_keys=False
+        )
+        term.print(Markdown("```yaml\n%s\n```" % msg))
+
 
 class CustomGroup(HelpColorsGroup):
     def get_command(self, ctx, cmd_name):
@@ -171,14 +164,17 @@ class CustomGroup(HelpColorsGroup):
     is_flag=True,
 )
 @click.option(
-    "-q", "--quiet", count=True,
-    help="Reduce verbosity level, can be specified twice.")
+    "-q", "--quiet", count=True, help="Reduce verbosity level, can be specified twice."
+)
 @click.option(
-    "-d", "--debug", default=False,
-    help="Debug mode (same as -vvv)", is_flag=True)
+    "-d", "--debug", default=False, help="Debug mode (same as -vvv)", is_flag=True
+)
 @click.option(
-    "-v", "--verbose", count=True,
-    help="Increase verbosity level",)
+    "-v",
+    "--verbose",
+    count=True,
+    help="Increase verbosity level",
+)
 @click.pass_context
 # pylint: disable=unused-argument,too-many-arguments,too-many-locals
 def cli(ctx, **kwargs):
@@ -289,6 +285,13 @@ def abandon(ctx, age):
         max_score=0.1,
         action="abandon",
     )
+
+
+@cli.command()
+@click.pass_context
+def config(ctx):
+    """Display loaded config or a sample if configuration is missing."""
+    ctx.obj.display_config()
 
 
 if __name__ == "__main__":
