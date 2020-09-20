@@ -27,10 +27,10 @@ class Config(dict):
         super().__init__()
         self.update(self.load_config(file))
 
-    @staticmethod
-    def load_config(config_file):
-        config_file = os.path.expanduser(config_file)
-        with open(config_file, "r") as stream:
+    def load_config(self, config_file):
+        self.config_file = config_file
+        _ = os.path.expanduser(config_file)
+        with open(_, "r") as stream:
             try:
                 return yaml.safe_load(stream)
             except yaml.YAMLError as exc:
@@ -114,7 +114,7 @@ class App:
         msg = yaml.dump(
             dict(self.cfg), default_flow_style=False, tags=False, sort_keys=False
         )
-        term.print(Markdown("```yaml\n%s\n```" % msg))
+        term.print(Markdown("```yaml\n# %s\n%s\n```" % (self.cfg.config_file, msg)))
 
 
 class CustomGroup(HelpColorsGroup):

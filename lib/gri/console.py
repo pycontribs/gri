@@ -1,7 +1,9 @@
 import logging
 
 import rich
-from rich.console import Console
+from rich.console import Console, ConsoleOptions, RenderResult
+from rich.markdown import CodeBlock, Markdown
+from rich.syntax import Syntax
 from rich.terminal_theme import TerminalTheme
 from rich.theme import Theme
 
@@ -43,6 +45,7 @@ theme = Theme(
 
 
 def bootstrap() -> Console:
+    Markdown.elements["code_block"] = MyCodeBlock
     return Console(
         theme=theme, highlighter=rich.highlighter.ReprHighlighter(), record=True
     )
@@ -75,3 +78,14 @@ def get_logging_level(ctx) -> int:
         level = logging.INFO
 
     return level
+
+
+# pylint: disable=too-few-public-methods
+class MyCodeBlock(CodeBlock):
+    # pylint: disable=unused-argument
+    def __rich_console__(
+        self, console: Console, options: ConsoleOptions
+    ) -> RenderResult:
+        code = str(self.text).rstrip()
+        syntax = Syntax(code, self.lexer_name, theme=self.theme)
+        yield syntax
