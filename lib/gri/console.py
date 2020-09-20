@@ -1,6 +1,9 @@
 import logging
 
+import rich
+from rich.console import Console
 from rich.terminal_theme import TerminalTheme
+from rich.theme import Theme
 
 TERMINAL_THEME = TerminalTheme(
     (13, 21, 27),
@@ -26,6 +29,23 @@ TERMINAL_THEME = TerminalTheme(
         (255, 255, 255),  # white
     ],
 )
+theme = Theme(
+    {
+        "normal": "",  # No or minor danger
+        "moderate": "yellow",  # Moderate danger
+        "considerable": "dark_orange",  # Considerable danger
+        "high": "red",  # High danger
+        "veryhigh": "dim red",  # Very high danger
+        "branch": "magenta",
+        "wip": "bold yellow",
+    }
+)
+
+
+def bootstrap() -> Console:
+    return Console(
+        theme=theme, highlighter=rich.highlighter.ReprHighlighter(), record=True
+    )
 
 
 def link(url: str, name: str) -> str:
