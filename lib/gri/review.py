@@ -2,29 +2,40 @@ import datetime
 import logging
 import os
 import re
+from typing import Dict
 
-from gri.console import link
+from gri.abc import Review
+from gri.label import Label
 
 LOG = logging.getLogger(__package__)
 
 
-class Review:
+class ChangeRequest(Review):  # pylint: disable=too-many-instance-attributes
     """Defines a change-request or pull-request."""
 
     def __init__(self, data: dict, server) -> None:
-        self.data = data
-        self.server = server
-
+        super().__init__(data, server)
         LOG.debug(data)
+        self.data = data
+        self.number = data["_number"]
+        self.project = data["project"]
+        self.starred = data.get("starred", False)
+        self.server = server
 
         if "topic" not in data:
             self.topic = ""
         else:
             self.topic = data["topic"]
 
-        self.is_wip = re.compile("^\\[?(WIP|DNM|POC).+$", re.IGNORECASE).match(
-            self.subject
+        self.title = data["subject"]
+
+        self.updated = datetime.datetime.strptime(
+            self.data["updated"][:-3], "%Y-%m-%d %H:%M:%S.%f"
         )
+
+        if re.compile("^\\[?(WIP|DNM|POC).+$", re.IGNORECASE).match(self.title):
+            self.is_wip = True
+
         self.url = "{}#/c/{}/".format(self.server.url, self.number)
 
         # Secret ScoreRank implementation which aims to map any review on a
@@ -38,7 +49,8 @@ class Review:
         # if not self.starred:
         #     self.score *= 0.9
 
-        self.labels = {}
+        self.labels: Dict[str, Label] = {}
+
         for label_name, label_data in data.get("labels", {}).items():
             label = Label(label_name, label_data)
             self.labels[label_name] = label
@@ -57,18 +69,6 @@ class Review:
         # We just want to keep wip changes in the same are ~0..1 score.
         if self.is_wip:
             self.score *= 0.05
-
-    def age(self) -> int:
-        """Return how many days passed since last update was made."""
-        time_now = datetime.datetime.now()
-        cr_last_updated = self.data["updated"]
-        time_cr_updated = datetime.datetime.strptime(
-            cr_last_updated[:-3], "%Y-%m-%d %H:%M:%S.%f"
-        )
-        return int((time_now - time_cr_updated).days)
-
-    def __repr__(self) -> str:
-        return str(self.number)
 
     def __getattr__(self, name):
         if name in self.data:
@@ -93,45 +93,45 @@ class Review:
             return f"[{style}]{text}[/]"
         return text
 
-    def as_columns(self) -> list:
-        """Return review info as columns with rich text."""
+    # def as_columns(self) -> list:
+    #     """Return review info as columns with rich text."""
 
-        result = []
+    #     result = []
 
-        # avoid use of emoji due to:
-        # https://github.com/willmcgugan/rich/issues/148
-        star = "[bright_yellow]★[/] " if self.starred else ""
+    #     # avoid use of emoji due to:
+    #     # https://github.com/willmcgugan/rich/issues/148
+    #     star = "[bright_yellow]★[/] " if self.starred else ""
 
-        result.append(f"{star}{self.colorize(link(self.url, self.number))}")
+    #     result.append(f"{star}{self.colorize(link(self.url, self.number))}")
 
-        result.append(f"[dim]{self.age():3}[/]" if self.age() else "")
+    #     result.append(f"[dim]{self.age():3}[/]" if self.age() else "")
 
-        msg = f"[{ 'wip' if self.is_wip else 'normal' }]{self.short_project()}[/]"
+    #     msg = f"[{ 'wip' if self.is_wip else 'normal' }]{self.short_project()}[/]"
 
-        if self.branch != "master":
-            msg += f" [branch][{self.branch}][/]"
+    #     if self.branch != "master":
+    #         msg += f" [branch][{self.branch}][/]"
 
-        msg += "[dim]: %s[/]" % (self.subject)
+    #     msg += "[dim]: %s[/]" % (self.title)
 
-        if self.topic:
-            topic_url = "{}#/q/topic:{}+(status:open+OR+status:merged)".format(
-                self.server.url, self.topic
-            )
-            msg += f" {link(topic_url, self.topic)}"
+    #     if self.topic:
+    #         topic_url = "{}#/q/topic:{}+(status:open+OR+status:merged)".format(
+    #             self.server.url, self.topic
+    #         )
+    #         msg += f" {link(topic_url, self.topic)}"
 
-        if self.status == "NEW" and not self.mergeable:
-            msg += " [veryhigh]cannot-merge[/]"
-        result.append(msg)
+    #     if self.status == "NEW" and not self.mergeable:
+    #         msg += " [veryhigh]cannot-merge[/]"
+    #     result.append(msg)
 
-        msg = ""
-        for label in self.labels.values():
-            if label.value:
-                # we print only labels without 0 value
-                msg += " %s" % label
+    #     msg = ""
+    #     for label in self.labels.values():
+    #         if label.value:
+    #             # we print only labels without 0 value
+    #             msg += " %s" % label
 
-        result.extend([msg.strip(), f" [dim]{self.score*100:.0f}%[/]"])
+    #     result.extend([msg.strip(), f" [dim]{self.score*100:.0f}%[/]"])
 
-        return result
+    #     return result
 
     def is_reviewed(self) -> bool:
         return self.data["labels"]["Code-Review"]["value"] > 1
@@ -155,45 +155,10 @@ class Review:
             )
             os.system(cmd)
 
+    @property
+    def status(self):
+        return self.data["status"]
 
-# pylint: disable=too-few-public-methods
-class Label:
-    def __init__(self, name, data) -> None:
-        self.name = name
-        self.abbr = re.sub("[^A-Z]", "", name)
-        self.value = 0
-
-        if data.get("blocking", False):
-            self.value += -2
-        if data.get("approved", False):
-            self.value += 2
-        if data.get("recommended", False):
-            self.value += 1
-        if data.get("disliked", False):
-            self.value += -1
-        if data.get("rejected", False):
-            self.value += -1
-        if data.get("optional", False):
-            self.value = 1
-        for unknown in set(data.keys()) - set(
-            [
-                "blocking",
-                "approved",
-                "recommended",
-                "disliked",
-                "rejected",
-                "value",
-                "optional",
-            ]
-        ):
-            LOG.warning("Found unknown label field %s: %s", unknown, data.get(unknown))
-
-    def __repr__(self) -> str:
-        msg = self.abbr + ":" + str(self.value)
-        if self.value < 0:
-            color = "red"
-        elif self.value == 0:
-            color = "yellow"
-        elif self.value > 0:
-            color = "green"
-        return f"[{color}]{msg}[/]"
+    @property
+    def is_mergeable(self):
+        return self.status == "NEW" and not self.mergeable

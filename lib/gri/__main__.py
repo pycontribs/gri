@@ -3,7 +3,7 @@
 import logging
 import os
 import sys
-from typing import List, Optional
+from typing import List, Optional, Type, Union
 
 import click
 import yaml
@@ -14,10 +14,17 @@ from rich.logging import RichHandler
 from rich.markdown import Markdown
 from rich.table import Table
 
+from gri.abc import Server
 from gri.console import TERMINAL_THEME, bootstrap, get_logging_level
 from gri.constants import RC_CONFIG_ERROR, RC_PARTIAL_RUN
 from gri.gerrit import GerritServer
+from gri.github import GithubServer
 from gri.review import Review
+
+try:
+    from urllib.parse import urlparse
+except ImportError:
+    from urlparse import urlparse  # type: ignore
 
 term = bootstrap()
 
@@ -56,7 +63,7 @@ class App:
     def __init__(self, ctx: click.Context) -> None:
         self.ctx = ctx
         self.cfg = Config(file=ctx.params["config"])
-        self.servers: List[GerritServer] = []
+        self.servers: List[Server] = []
         self.user = ctx.params["user"]
         self.errors = 0  # number of errors encountered
         server = ctx.params["server"]
@@ -67,7 +74,16 @@ class App:
                 else [self.cfg["servers"][int(server)]]
             ):
                 try:
-                    self.servers.append(GerritServer(url=srv["url"], name=srv["name"]))
+                    # TODO(ssbarnea): make server type configurable
+                    parsed_uri = urlparse(srv["url"])
+                    srv_class: Union[
+                        Type[GithubServer], Type[GerritServer]
+                    ] = GerritServer
+                    if parsed_uri.netloc == "github.com":
+                        srv_class = GithubServer
+                    self.servers.append(
+                        srv_class(url=srv["url"], name=srv["name"], ctx=self.ctx)
+                    )
                 except SystemError as exc:
                     LOG.error(exc)
         except IndexError:
@@ -87,8 +103,8 @@ class App:
         for item in self.servers:
 
             try:
-                for record in item.query(query=query):
-                    self.reviews.append(Review(record, item))
+                for review in item.query(query=query):
+                    self.reviews.append(review)
             except (HTTPError, RuntimeError) as exc:
                 LOG.error(exc)
                 errors += 1
@@ -251,8 +267,9 @@ def process_result(result, **kwargs):  # pylint: disable=unused-argument
 @click.pass_context
 def owned(ctx):
     """Changes originated from current user (implicit)"""
-    query = "status:open"
-    query += f" owner:{ctx.obj.user}"
+    # query = "status:open"
+    # query += f" owner:{ctx.obj.user}"
+    query = "owned"
     if ctx.obj.user == "self":
         title = "Own reviews"
     else:

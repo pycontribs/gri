@@ -2,6 +2,7 @@
 
 disable =
     # TODO(ssbarnea): remove temporary skips adding during initial adoption:
+    fixme,
     import-error,  # https://github.com/pre-commit/pre-commit/issues/813
     missing-class-docstring,
     missing-function-docstring,
