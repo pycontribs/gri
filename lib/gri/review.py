@@ -83,28 +83,15 @@ class Review:
             return match.group(0)
         return self.project
 
-    def background(self) -> str:
-        styles = [
-            "normal",
-            "low",
-            "moderate",
-            "considerable",
-            "veryhigh",
-        ]
-        if self.is_wip:
-            return styles[0]
-        scores = [
-            40,
-            15,
-            10,
-            0,
-            -10,
-        ]
-        i = 0
-        for i, score in enumerate(scores):
-            if self.score > score:
-                break
-        return styles[i]
+    def colorize(self, text: str) -> str:
+        style = ""
+        if self.status == "NEW" and not self.mergeable:
+            style = "dim red"
+        elif self.is_wip:
+            style = "wip"
+        if style:
+            return f"[{style}]{text}[/]"
+        return text
 
     def as_columns(self) -> list:
         """Return review info as columns with rich text."""
@@ -115,7 +102,7 @@ class Review:
         # https://github.com/willmcgugan/rich/issues/148
         star = "[bright_yellow]★[/] " if self.starred else ""
 
-        result.append(f"{star}[{self.background()}]{link(self.url, self.number)}[/]")
+        result.append(f"{star}{self.colorize(link(self.url, self.number))}")
 
         result.append(f"[dim]{self.age():3}[/]" if self.age() else "")
 
