@@ -11,7 +11,7 @@ LOG = logging.getLogger(__package__)
 class Review:
     """Defines a change-request or pull-request."""
 
-    def __init__(self, data, server) -> None:
+    def __init__(self, data: dict, server) -> None:
         self.data = data
         self.server = server
 
@@ -67,7 +67,7 @@ class Review:
         )
         return int((time_now - time_cr_updated).days)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return str(self.number)
 
     def __getattr__(self, name):
@@ -133,13 +133,13 @@ class Review:
 
         return result
 
-    def is_reviewed(self):
+    def is_reviewed(self) -> bool:
         return self.data["labels"]["Code-Review"]["value"] > 1
 
-    def __lt__(self, other):
+    def __lt__(self, other) -> bool:
         return self.score >= other.score
 
-    def abandon(self, dry=True):
+    def abandon(self, dry=True) -> None:
         # shell out here because HTTPS api to abandon can fail
         if self.draft:
             action = "delete"
@@ -188,7 +188,7 @@ class Label:
         ):
             LOG.warning("Found unknown label field %s: %s", unknown, data.get(unknown))
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         msg = self.abbr + ":" + str(self.value)
         if self.value < 0:
             color = "red"

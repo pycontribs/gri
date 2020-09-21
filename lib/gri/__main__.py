@@ -3,7 +3,7 @@
 import logging
 import os
 import sys
-from typing import List
+from typing import List, Optional
 
 import click
 import yaml
@@ -29,11 +29,11 @@ LOG = logging.getLogger(__package__)
 
 
 class Config(dict):
-    def __init__(self, file):
+    def __init__(self, file: str) -> None:
         super().__init__()
         self.update(self.load_config(file))
 
-    def load_config(self, config_file):
+    def load_config(self, config_file: str) -> dict:
         self.config_file = config_file
         config_file_full = os.path.expanduser(config_file)
         if not os.path.isfile(config_file_full):
@@ -45,7 +45,7 @@ class Config(dict):
             config_file_full = config_file_full = os.path.expanduser(GERTTY_CFG_FILE)
         try:
             with open(config_file_full, "r") as stream:
-                return yaml.safe_load(stream)
+                return dict(yaml.safe_load(stream))
         except (FileNotFoundError, yaml.YAMLError) as exc:
             LOG.error(exc)
             sys.exit(RC_CONFIG_ERROR)
@@ -53,10 +53,10 @@ class Config(dict):
 
 # pylint: disable=too-few-public-methods
 class App:
-    def __init__(self, ctx):
+    def __init__(self, ctx: click.Context) -> None:
         self.ctx = ctx
         self.cfg = Config(file=ctx.params["config"])
-        self.servers = []
+        self.servers: List[GerritServer] = []
         self.user = ctx.params["user"]
         self.errors = 0  # number of errors encountered
         server = ctx.params["server"]
@@ -94,11 +94,17 @@ class App:
                 errors += 1
         return errors
 
-    def header(self):
+    def header(self) -> str:
         srv_list = " ".join(s.name for s in self.servers)
         return f"[dim]GRI using {len(self.servers)} servers: {srv_list}[/]"
 
-    def report(self, query=None, title="Reviews", max_score=1, action=None):
+    def report(
+        self,
+        query: str = None,
+        title: str = "Reviews",
+        max_score: int = 1,
+        action: Optional[str] = None,
+    ) -> None:
         """Produce a table report based on a query."""
         if query:
             self.errors += self.run_query(query)
@@ -135,7 +141,7 @@ class App:
         extra = f" from: [cyan]{query}[/]" if query else ""
         term.print(f"[dim]-- {cnt} changes listed{extra}[/]")
 
-    def display_config(self):
+    def display_config(self) -> None:
         msg = yaml.dump(
             dict(self.cfg), default_flow_style=False, tags=False, sort_keys=False
         )
@@ -143,7 +149,7 @@ class App:
 
 
 class CustomGroup(HelpColorsGroup):
-    def get_command(self, ctx, cmd_name):
+    def get_command(self, ctx: click.Context, cmd_name: str) -> Optional[click.Command]:
         """Undocumented command aliases for lazy users"""
         aliases = {
             "o": owned,
@@ -202,7 +208,7 @@ class CustomGroup(HelpColorsGroup):
 )
 @click.pass_context
 # pylint: disable=unused-argument,too-many-arguments,too-many-locals
-def cli(ctx, **kwargs):
+def cli(ctx: click.Context, **kwargs):
 
     handler = RichHandler(show_time=False, show_path=False)
     LOG.addHandler(handler)
@@ -235,8 +241,6 @@ def process_result(result, **kwargs):  # pylint: disable=unused-argument
     if kwargs["output"]:
         term.save_html(path=output, theme=TERMINAL_THEME)
         LOG.info("Report saved to %s", output)
-    # LOG.error(result)
-    # LOG.error(kwargs)
 
 
 @cli.command()

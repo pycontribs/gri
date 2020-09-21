@@ -2,6 +2,7 @@ import json
 import logging
 import netrc
 import os
+from typing import Dict
 
 import requests
 from requests.auth import HTTPBasicAuth, HTTPDigestAuth
@@ -12,17 +13,19 @@ except ImportError:
     from urlparse import urlencode, urlparse  # type: ignore
 
 # Used only to force outdated Digest auth for servers not using standard auth
-KNOWN_SERVERS = {
+KNOWN_SERVERS: Dict[str, Dict] = {
     "https://review.opendev.org/": {"auth": HTTPDigestAuth},
-    "https://code.engineering.redhat.com/gerrit/": {"auth": HTTPDigestAuth},
-    "verify": False,
+    "https://code.engineering.redhat.com/gerrit/": {
+        "auth": HTTPDigestAuth,
+        "verify": False,
+    },
 }
 LOG = logging.getLogger(__package__)
 
 
 # pylint: disable=too-few-public-methods
 class GerritServer:
-    def __init__(self, url, name=None):
+    def __init__(self, url: str, name: str = "") -> None:
         self.url = url
         self.name = name
         parsed_uri = urlparse(url)
@@ -65,7 +68,7 @@ class GerritServer:
             }
         )
 
-    def query(self, query=None):
+    def query(self, query=None) -> dict:
         payload = [
             ("q", query),
             ("o", "LABELS"),
@@ -77,7 +80,7 @@ class GerritServer:
         return self.parsed(self.__session.get(url))
 
     @staticmethod
-    def parsed(result):
+    def parsed(result) -> dict:
         # Can raise HTTPError, RuntimeError
         result.raise_for_status()
 
