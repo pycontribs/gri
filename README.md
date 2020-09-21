@@ -29,8 +29,9 @@ pip install gri
 You can just run `gri`, or `python -m gri` in order to get a list of your
 current reviews, aslo known as outgoing reviews.
 
-Currently the tool loads gerrit servers defined in [`~/.gertty.yaml`][1] but
-uses credentials from `~/.netrc` file.
+GRI uses a simple config file [`~/.config/gri/gri.yaml`][1] but when the file
+is missing, it will try to load servers from [`~/.gertty.yaml`][2] in case you
+have one.
 
 ```console
 $ gri --help
@@ -65,19 +66,20 @@ the missing change.
 
 ## Related tools
 
-* [git-review][3] is the git extension for working with gerrit, where I am also
+* [git-review][4] is the git extension for working with gerrit, where I am also
   one of the core contributors.
-* [GerTTY](https://github.com/openstack/gertty) is a very useful tui for gerrit
+* [gertty](https://opendev.org/ttygroup/gertty) is a very useful tui for gerrit
   which inspired me but which presents one essential design limitation: it does
   not work with multiple Gerrit servers.
-* [Gerrit-View](https://github.com/Gruntfuggly/gerrit-view) is a vscode plugin
-  that can be installed from [Visual Studio Marketplace][2].
+* [gerrit-view](https://github.com/Gruntfuggly/gerrit-view) is a vscode plugin
+  that can be installed from [Visual Studio Marketplace][3].
 
 ## Notes
 
 1. `gri` name comes from my attempt to find a short name that was starting
    with **g** (from git/gerrit) and preferably sounds like `cli`.
 
-[1]: https://github.com/openstack/gertty/tree/master/examples
-[2]: https://marketplace.visualstudio.com/items?itemName=Gruntfuggly.gerrit-view
-[3]: https://docs.openstack.org/infra/git-review/
+[1]: https://github.com/pycontribs/gri/blob/master/test/gri.yaml
+[2]: https://opendev.org/ttygroup/gertty/src/branch/master/examples/minimal-gertty.yaml
+[3]: https://marketplace.visualstudio.com/items?itemName=Gruntfuggly.gerrit-view
+[4]: https://docs.openstack.org/infra/git-review/

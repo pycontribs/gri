@@ -1,0 +1,7 @@
+servers:
+  - name: gerrithub
+    url: https://review.gerrithub.io/
+
+# Usernames and passwords are loaded from ~/.netrc file
+# Keep in mind that gerrit password/token is obtained from its web interface
+# machine review.gerrithub.io login johndoe password ...
