@@ -11,7 +11,7 @@ LOG = logging.getLogger(__package__)
 class Review:
     """Defines a change-request or pull-request."""
 
-    def __init__(self, data, server) -> None:
+    def __init__(self, data: dict, server) -> None:
         self.data = data
         self.server = server
 
@@ -67,7 +67,7 @@ class Review:
         )
         return int((time_now - time_cr_updated).days)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return str(self.number)
 
     def __getattr__(self, name):
@@ -83,28 +83,15 @@ class Review:
             return match.group(0)
         return self.project
 
-    def background(self) -> str:
-        styles = [
-            "normal",
-            "low",
-            "moderate",
-            "considerable",
-            "veryhigh",
-        ]
-        if self.is_wip:
-            return styles[0]
-        scores = [
-            40,
-            15,
-            10,
-            0,
-            -10,
-        ]
-        i = 0
-        for i, score in enumerate(scores):
-            if self.score > score:
-                break
-        return styles[i]
+    def colorize(self, text: str) -> str:
+        style = ""
+        if self.status == "NEW" and not self.mergeable:
+            style = "dim red"
+        elif self.is_wip:
+            style = "wip"
+        if style:
+            return f"[{style}]{text}[/]"
+        return text
 
     def as_columns(self) -> list:
         """Return review info as columns with rich text."""
@@ -115,7 +102,7 @@ class Review:
         # https://github.com/willmcgugan/rich/issues/148
         star = "[bright_yellow]★[/] " if self.starred else ""
 
-        result.append(f"{star}[{self.background()}]{link(self.url, self.number)}[/]")
+        result.append(f"{star}{self.colorize(link(self.url, self.number))}")
 
         result.append(f"[dim]{self.age():3}[/]" if self.age() else "")
 
@@ -146,13 +133,13 @@ class Review:
 
         return result
 
-    def is_reviewed(self):
+    def is_reviewed(self) -> bool:
         return self.data["labels"]["Code-Review"]["value"] > 1
 
-    def __lt__(self, other):
+    def __lt__(self, other) -> bool:
         return self.score >= other.score
 
-    def abandon(self, dry=True):
+    def abandon(self, dry=True) -> None:
         # shell out here because HTTPS api to abandon can fail
         if self.draft:
             action = "delete"
@@ -201,7 +188,7 @@ class Label:
         ):
             LOG.warning("Found unknown label field %s: %s", unknown, data.get(unknown))
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         msg = self.abbr + ":" + str(self.value)
         if self.value < 0:
             color = "red"
