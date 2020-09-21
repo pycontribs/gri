@@ -2,11 +2,9 @@ import json
 import logging
 import netrc
 import os
-import sys
 
 import requests
 from requests.auth import HTTPBasicAuth, HTTPDigestAuth
-from requests.exceptions import HTTPError
 
 try:
     from urllib.parse import urlencode, urlparse
@@ -80,11 +78,8 @@ class GerritServer:
 
     @staticmethod
     def parsed(result):
-        try:
-            result.raise_for_status()
-        except HTTPError as exc:
-            LOG.error(exc)
-            sys.exit(2)
+        # Can raise HTTPError, RuntimeError
+        result.raise_for_status()
 
         if hasattr(result, "text") and result.text[:4] == ")]}'":
             return json.loads(result.text[5:])

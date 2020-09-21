@@ -11,7 +11,7 @@ LOG = logging.getLogger(__package__)
 class Review:
     """Defines a change-request or pull-request."""
 
-    def __init__(self, data, server):
+    def __init__(self, data, server) -> None:
         self.data = data
         self.server = server
 
@@ -171,7 +171,7 @@ class Review:
 
 # pylint: disable=too-few-public-methods
 class Label:
-    def __init__(self, name, data):
+    def __init__(self, name, data) -> None:
         self.name = name
         self.abbr = re.sub("[^A-Z]", "", name)
         self.value = 0
