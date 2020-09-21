@@ -3,16 +3,19 @@
 import logging
 import os
 import sys
+from typing import List
 
 import click
 import yaml
 from click_help_colors import HelpColorsGroup
+from requests.exceptions import HTTPError
 from rich import box
 from rich.logging import RichHandler
 from rich.markdown import Markdown
 from rich.table import Table
 
 from gri.console import TERMINAL_THEME, bootstrap, get_logging_level
+from gri.constants import RC_CONFIG_ERROR, RC_PARTIAL_RUN
 from gri.gerrit import GerritServer
 from gri.review import Review
 
@@ -45,7 +48,7 @@ class Config(dict):
                 return yaml.safe_load(stream)
         except (FileNotFoundError, yaml.YAMLError) as exc:
             LOG.error(exc)
-            sys.exit(2)
+            sys.exit(RC_CONFIG_ERROR)
 
 
 # pylint: disable=too-few-public-methods
@@ -55,29 +58,41 @@ class App:
         self.cfg = Config(file=ctx.params["config"])
         self.servers = []
         self.user = ctx.params["user"]
+        self.errors = 0  # number of errors encountered
         server = ctx.params["server"]
-        for srv in (
-            self.cfg["servers"]
-            if server is None
-            else [self.cfg["servers"][int(server)]]
-        ):
-            try:
-                self.servers.append(GerritServer(url=srv["url"], name=srv["name"]))
-            except SystemError as exc:
-                LOG.error(exc)
+        try:
+            for srv in (
+                self.cfg["servers"]
+                if server is None
+                else [self.cfg["servers"][int(server)]]
+            ):
+                try:
+                    self.servers.append(GerritServer(url=srv["url"], name=srv["name"]))
+                except SystemError as exc:
+                    LOG.error(exc)
+        except IndexError:
+            LOG.error("Unable to find server %s index in server list.", server)
+            sys.exit(RC_CONFIG_ERROR)
         if not self.servers:
-            sys.exit(1)
+            LOG.error("List of servers is invalid or empty.")
+            sys.exit(RC_CONFIG_ERROR)
 
-        self.reviews = list()
+        self.reviews: List[Review] = list()
         term.print(self.header())
 
-    def run_query(self, query):
+    def run_query(self, query: str) -> int:
         """Performs a query and stores result inside reviews attribute"""
-        self.reviews = list()
+        errors = 0
+        self.reviews.clear()
         for item in self.servers:
 
-            for record in item.query(query=query):
-                self.reviews.append(Review(record, item))
+            try:
+                for record in item.query(query=query):
+                    self.reviews.append(Review(record, item))
+            except (HTTPError, RuntimeError) as exc:
+                LOG.error(exc)
+                errors += 1
+        return errors
 
     def header(self):
         srv_list = " ".join(s.name for s in self.servers)
@@ -86,7 +101,7 @@ class App:
     def report(self, query=None, title="Reviews", max_score=1, action=None):
         """Produce a table report based on a query."""
         if query:
-            self.run_query(query)
+            self.errors += self.run_query(query)
 
         cnt = 0
 
@@ -209,6 +224,10 @@ def cli(ctx, **kwargs):
     if ctx.params["output"]:
         term.save_html(path=ctx.params["output"], theme=TERMINAL_THEME)
 
+    if ctx.obj.errors:
+        LOG.error("Finished with %s runtime errors", ctx.obj.errors)
+        sys.exit(RC_PARTIAL_RUN)
+
 
 @cli.resultcallback()
 def process_result(result, **kwargs):  # pylint: disable=unused-argument
@@ -216,6 +235,8 @@ def process_result(result, **kwargs):  # pylint: disable=unused-argument
     if kwargs["output"]:
         term.save_html(path=output, theme=TERMINAL_THEME)
         LOG.info("Report saved to %s", output)
+    # LOG.error(result)
+    # LOG.error(kwargs)
 
 
 @cli.command()
