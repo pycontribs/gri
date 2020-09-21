@@ -62,21 +62,20 @@ def get_logging_level(ctx) -> int:
     elif ctx.params["quiet"]:
         verbosity -= ctx.params["quiet"]
 
+    # our default logging level is info instead of NOTSET which may prove too verbose.
+    level = logging.INFO
     if verbosity >= 4:
         level = 1  # aka SPAM
-    elif verbosity >= 3:
+    elif verbosity == 3:
         level = logging.DEBUG  # 10
-    elif verbosity >= 2:
-        level = 25  # 25
-    elif verbosity >= 1:
+    elif verbosity == 2:
+        level = 15  # 15
+    elif verbosity == 1:
         level = logging.INFO  # 20
     elif verbosity == -1:
         level = logging.WARNING  # 30
     elif verbosity < -1:
         level = logging.ERROR  # 40
-    else:
-        level = logging.INFO
-
     return level
 
 
