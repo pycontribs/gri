@@ -17,7 +17,10 @@ from gri.gerrit import GerritServer
 from gri.review import Review
 
 term = bootstrap()
-CFG_FILE = "~/.gertty.yaml"
+
+# Respect XDG_CONFIG_HOME
+CFG_FILE = "~/.config/gri/gri.yaml"
+GERTTY_CFG_FILE = "~/.gertty.yaml"
 
 LOG = logging.getLogger(__package__)
 
@@ -29,13 +32,20 @@ class Config(dict):
 
     def load_config(self, config_file):
         self.config_file = config_file
-        _ = os.path.expanduser(config_file)
-        with open(_, "r") as stream:
-            try:
+        config_file_full = os.path.expanduser(config_file)
+        if not os.path.isfile(config_file_full):
+            LOG.warning(
+                "%s config file missing, attempting use of %s as fallback",
+                config_file_full,
+                GERTTY_CFG_FILE,
+            )
+            config_file_full = config_file_full = os.path.expanduser(GERTTY_CFG_FILE)
+        try:
+            with open(config_file_full, "r") as stream:
                 return yaml.safe_load(stream)
-            except yaml.YAMLError as exc:
-                LOG.error(exc)
-                sys.exit(2)
+        except (FileNotFoundError, yaml.YAMLError) as exc:
+            LOG.error(exc)
+            sys.exit(2)
 
 
 # pylint: disable=too-few-public-methods
