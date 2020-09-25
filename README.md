@@ -1,13 +1,16 @@
-# gri : Gerrit Reduced Interface
+# gri : Git Reduced Interface
 
 `gri` is a CLI tool that **lists git reviews** from multiple servers
 in a way that makes easier to to identify which one need you attention.
+
+Currently supported backends are Gerrit and GitHub but it should be easy to
+add others if needed.
 
 ![screenshot](https://sbarnea.com/ss/Screen-Shot-2020-09-18-10-41-05.06.png)
 
 ## Features
 
-* combines results from multiple Gerrit servers
+* combines results from multiple Gerrit or GitHub servers
 * uses terminal clickable links to make it easy to access these reviews
 * displays important metadata related to reviews in a compressed format
 * reviews are sorted based on probablility of getting merged
