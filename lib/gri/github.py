@@ -41,7 +41,6 @@ class GithubServer(Server):
         if query == "owned":
             return "is:pr is:open author:@me"
         if query == "incoming":
-            print(100)
             return "is:pr is:open involves:@me -author:@me"
         raise NotImplementedError(f"Unable to build query for {query}")
 

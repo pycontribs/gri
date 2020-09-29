@@ -281,8 +281,7 @@ def owned(ctx):
 @click.pass_context
 def incoming(ctx):
     """Incoming reviews"""
-    query = f"reviewer:{ctx.obj.user} status:open"
-    ctx.obj.report(query=query, title=incoming.__doc__)
+    ctx.obj.report(query="incoming", title=incoming.__doc__)
 
 
 @cli.command()

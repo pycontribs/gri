@@ -93,6 +93,8 @@ class GerritServer(Server):
     def mk_query(self, query: str) -> str:
         if query == "owned":
             return f"status:open owner:{self.ctx.obj.user}"
+        if query == "incoming":
+            return f"reviewer:{self.ctx.obj.user} status:open"
 
         raise NotImplementedError(f"{query} query not implemented by {self.__class__}")
 
