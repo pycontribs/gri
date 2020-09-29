@@ -2,10 +2,13 @@ import json
 import logging
 import netrc
 import os
-from typing import Dict
+from typing import Dict, List
 
 import requests
 from requests.auth import HTTPBasicAuth, HTTPDigestAuth
+
+from gri.abc import Server
+from gri.review import ChangeRequest
 
 try:
     from urllib.parse import urlencode, urlparse
@@ -24,9 +27,11 @@ LOG = logging.getLogger(__package__)
 
 
 # pylint: disable=too-few-public-methods
-class GerritServer:
-    def __init__(self, url: str, name: str = "") -> None:
+class GerritServer(Server):
+    def __init__(self, url: str, name: str = "", ctx=None) -> None:
+        super().__init__()
         self.url = url
+        self.ctx = ctx
         self.name = name
         parsed_uri = urlparse(url)
         if not name:
@@ -68,16 +73,28 @@ class GerritServer:
             }
         )
 
-    def query(self, query=None) -> dict:
+    def query(self, query=None) -> List:
+
+        gerrit_query = self.mk_query(query)
+
         payload = [
-            ("q", query),
+            ("q", gerrit_query),
             ("o", "LABELS"),
             ("o", "COMMIT_FOOTERS"),
         ]
         encoded = urlencode(payload, doseq=True, safe=":")
         url = rf"{self.url}a/changes/?{encoded}"
         # %20NOT%20label:Code-Review>=0,self
-        return self.parsed(self.__session.get(url))
+        return [
+            ChangeRequest(data=r, server=self)
+            for r in self.parsed(self.__session.get(url))
+        ]
+
+    def mk_query(self, query: str) -> str:
+        if query == "owned":
+            return f"status:open owner:{self.ctx.obj.user}"
+
+        raise NotImplementedError(f"{query} query not implemented by {self.__class__}")
 
     @staticmethod
     def parsed(result) -> dict:
