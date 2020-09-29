@@ -7,7 +7,7 @@ from typing import Dict, List
 import requests
 from requests.auth import HTTPBasicAuth, HTTPDigestAuth
 
-from gri.abc import Server
+from gri.abc import Query, Server
 from gri.review import ChangeRequest
 
 try:
@@ -73,7 +73,7 @@ class GerritServer(Server):
             }
         )
 
-    def query(self, query=None) -> List:
+    def query(self, query: Query) -> List:
 
         gerrit_query = self.mk_query(query)
 
@@ -90,13 +90,23 @@ class GerritServer(Server):
             for r in self.parsed(self.__session.get(url))
         ]
 
-    def mk_query(self, query: str) -> str:
-        if query == "owned":
+    def mk_query(self, query: Query) -> str:
+        if query.name == "owned":
             return f"status:open owner:{self.ctx.obj.user}"
-        if query == "incoming":
+        if query.name == "incoming":
             return f"reviewer:{self.ctx.obj.user} status:open"
+        if query.name == "watched":
+            return f"watchedby:{self.ctx.obj.user} status:open"
+        if query.name == "abandon":
+            return f"status:open age:{query.age}d owner:{self.ctx.obj.user}"
+        if query.name == "draft":
+            return "status:open owner:self has:draft OR draftby:self"
+        if query.name == "merged":
+            return f"status:merged -age:{query.age}d owner:{self.ctx.obj.user}"
 
-        raise NotImplementedError(f"{query} query not implemented by {self.__class__}")
+        raise NotImplementedError(
+            f"{query.name} query not implemented by {self.__class__}"
+        )
 
     @staticmethod
     def parsed(result) -> dict:

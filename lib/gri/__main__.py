@@ -14,7 +14,7 @@ from rich.logging import RichHandler
 from rich.markdown import Markdown
 from rich.table import Table
 
-from gri.abc import Server
+from gri.abc import Query, Server
 from gri.console import TERMINAL_THEME, bootstrap, get_logging_level
 from gri.constants import RC_CONFIG_ERROR, RC_PARTIAL_RUN
 from gri.gerrit import GerritServer
@@ -66,6 +66,7 @@ class App:
         self.servers: List[Server] = []
         self.user = ctx.params["user"]
         self.errors = 0  # number of errors encountered
+        self.query_details: List[str] = []
         server = ctx.params["server"]
         try:
             for srv in (
@@ -96,10 +97,11 @@ class App:
         self.reviews: List[Review] = list()
         term.print(self.header())
 
-    def run_query(self, query: str) -> int:
+    def run_query(self, query: Query) -> int:
         """Performs a query and stores result inside reviews attribute"""
         errors = 0
         self.reviews.clear()
+        self.query_details = []
         for item in self.servers:
 
             try:
@@ -108,6 +110,8 @@ class App:
             except (HTTPError, RuntimeError) as exc:
                 LOG.error(exc)
                 errors += 1
+            self.query_details.append(item.mk_query(query))
+
         return errors
 
     def header(self) -> str:
@@ -116,7 +120,7 @@ class App:
 
     def report(
         self,
-        query: str = None,
+        query: Query,
         title: str = "Reviews",
         max_score: int = 1,
         action: Optional[str] = None,
@@ -154,8 +158,7 @@ class App:
             term.print()
             term.print(table)
 
-        extra = f" from: [cyan]{query}[/]" if query else ""
-        term.print(f"[dim]-- {cnt} changes listed{extra}[/]")
+        term.print(f"[dim]-- {cnt} changes listed {self.query_details}[/]")
 
     def display_config(self) -> None:
         msg = yaml.dump(
@@ -269,19 +272,18 @@ def owned(ctx):
     """Changes originated from current user (implicit)"""
     # query = "status:open"
     # query += f" owner:{ctx.obj.user}"
-    query = "owned"
     if ctx.obj.user == "self":
         title = "Own reviews"
     else:
         title = f"Reviews owned by {ctx.obj.user}"
-    ctx.obj.report(query=query, title=title)
+    ctx.obj.report(query=Query("owned"), title=title)
 
 
 @cli.command()
 @click.pass_context
 def incoming(ctx):
     """Incoming reviews"""
-    ctx.obj.report(query="incoming", title=incoming.__doc__)
+    ctx.obj.report(query=Query("incoming"), title=incoming.__doc__)
 
 
 @cli.command()
@@ -293,8 +295,7 @@ def incoming(ctx):
 )
 def merged(ctx, age):
     """Merged in the last number of days"""
-    query = f"status:merged -age:{age}d owner:{ctx.obj.user}"
-    ctx.obj.report(query=query, title=f"Merged Reviews ({age}d)")
+    ctx.obj.report(query=Query("merged", age=age), title=f"Merged Reviews ({age}d)")
 
 
 # @cli.command()
@@ -309,16 +310,14 @@ def merged(ctx, age):
 @click.pass_context
 def watched(ctx):
     """Watched reviews based on server side filters"""
-    query = f"watchedby:{ctx.obj.user} status:open"
-    ctx.obj.report(query=query, title=watched.__doc__)
+    ctx.obj.report(query=Query("watched"), title=watched.__doc__)
 
 
 @cli.command()
 @click.pass_context
 def draft(ctx):
     """Draft reviews or with draft comments."""
-    query = "status:open owner:self has:draft OR draftby:self"
-    ctx.obj.report(query=query, title=draft.__doc__)
+    ctx.obj.report(query=Query("draft"), title=draft.__doc__)
 
 
 @cli.command()
@@ -332,12 +331,11 @@ def draft(ctx):
 def abandon(ctx, age):
     """Abandon changes (delete for drafts) when they are >90 days old
     and with very low score. Requires -f to perform the action."""
-    query = f"status:open age:{age}d owner:{ctx.obj.user}"
 
     ctx.obj.report(
-        query=query,
+        query=Query("abandon", age=age),
         title=f"Reviews to abandon ({age}d)",
-        max_score=0.1,
+        max_score=1.0,
         action="abandon",
     )
 

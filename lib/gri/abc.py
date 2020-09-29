@@ -1,19 +1,26 @@
 import datetime
 from abc import ABC
+from dataclasses import dataclass
 from typing import Dict, List
 
 from gri.console import link
 from gri.label import Label
 
 
+@dataclass
+class Query:
+    name: str
+    age: int = 0
+
+
 class Server(ABC):  # pylint: disable=too-few-public-methods
     def __init__(self) -> None:
         self.name = "Unknown"
 
-    def query(self, query=None) -> List:
+    def query(self, query: Query) -> List:
         raise NotImplementedError()
 
-    def mk_query(self, query: str) -> str:
+    def mk_query(self, query: Query) -> str:
         raise NotImplementedError()
 
 
