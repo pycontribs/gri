@@ -36,6 +36,11 @@ class Label:
         ):
             LOG.debug("Found unknown label field %s: %s", unknown, data.get(unknown))
 
+    def is_meta(self) -> bool:
+        if self.name in ["Code-Review", "Workflow", "Verified"]:
+            return True
+        return False
+
     def __repr__(self) -> str:
         msg = self.abbr + ":" + str(self.value)
         if self.value < 0:
