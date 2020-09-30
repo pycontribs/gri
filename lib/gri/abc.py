@@ -1,7 +1,7 @@
 import datetime
 from abc import ABC
 from dataclasses import dataclass
-from typing import Dict, List
+from typing import Dict, Iterator, List
 
 from gri.console import link
 from gri.label import Label
@@ -82,6 +82,7 @@ class Review:  # pylint: disable=too-many-instance-attributes
         if self.branch != "master":
             msg += f" [branch][{self.branch}][/]"
 
+        # description/detail column
         msg += "[dim]: %s[/]" % (self.title)
 
         if self.topic:
@@ -92,17 +93,28 @@ class Review:  # pylint: disable=too-many-instance-attributes
 
         if self.status == "NEW" and not self.mergeable:
             msg += " [veryhigh]cannot-merge[/]"
+
+        for label in self._get_labels(meta=False):
+            msg += f" [blue]{label.name}[/]"
+
         result.append(msg)
 
+        # meta column, used to display short status symbols
         msg = ""
-        for label in self.labels.values():
-            if hasattr(label, "value") and label.value:
-                # we print only labels without 0 value
+        for label in self._get_labels(meta=True):
+            # we do not display labels with no value
+            if label.value:
                 msg += " %s" % label
 
         result.extend([msg.strip(), f" [dim]{self.score*100:.0f}%[/]"])
 
         return result
+
+    def _get_labels(self, meta=False) -> Iterator[Label]:
+        """Return labels that are part of meta group or opposite."""
+        for label in self.labels.values():
+            if label.is_meta() == meta:
+                yield label
 
     @property
     def is_mergeable(self):
