@@ -14,12 +14,11 @@ from rich.logging import RichHandler
 from rich.markdown import Markdown
 from rich.table import Table
 
-from gri.abc import Query, Server
+from gri.abc import Query, Review, Server
 from gri.console import TERMINAL_THEME, bootstrap, get_logging_level
 from gri.constants import RC_CONFIG_ERROR, RC_PARTIAL_RUN
 from gri.gerrit import GerritServer
 from gri.github import GithubServer
-from gri.review import Review
 
 try:
     from urllib.parse import urlparse

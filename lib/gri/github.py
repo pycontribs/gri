@@ -6,7 +6,7 @@ from typing import Dict, List
 import github
 
 from gri.abc import Query, Review, Server
-from gri.review import Label
+from gri.label import Label
 
 try:
     from urllib.parse import urlparse
