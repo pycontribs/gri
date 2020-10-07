@@ -25,10 +25,11 @@ class GithubServer(Server):
         token = os.environ.get("HOMEBREW_GITHUB_API_TOKEN")
         self.github = github.Github(login_or_token=token)
 
-    def query(self, query: Query) -> List:
+    def query(self, query: Query, kind="review") -> List:
+        LOG.debug("Called query=%s and kind=%s", query, kind)
         reviews = []
-        limit = 10
-        results = self.github.search_issues(self.mk_query(query))
+        limit = 50
+        results = self.github.search_issues(self.mk_query(query, kind=kind))
         for _, item in zip(range(limit), results):
             review = PullRequest(data=item.raw_data, server=self)
             reviews.append(review)
@@ -36,23 +37,27 @@ class GithubServer(Server):
         # print(mine)
         return reviews
 
-    def mk_query(self, query: Query) -> str:  # pylint: disable=no-self-use
+    def mk_query(
+        self, query: Query, kind: str = "review"
+    ) -> str:  # pylint: disable=no-self-use
         """Return query string based on """
         # https://docs.github.com/en/free-pro-team@latest/github/searching-for-information-on-github/searching-issues-and-pull-requests
+        kind = "is:pr" if kind == "review" else "is:issue"
+
         if query.name == "owned":
-            return "is:pr is:open author:@me"
+            return f"{kind} is:open author:@me"
         if query.name == "incoming":
-            return "is:pr is:open involves:@me -author:@me"
+            return f"{kind} is:open involves:@me -author:@me"
         if query.name == "watched":
-            return "is:pr is:open involves:@me -author:@me"
+            return f"{kind} is:open involves:@me -author:@me"
         if query.name == "abandon":
             day = (datetime.now() - timedelta(days=query.age)).date().isoformat()
-            return f"is:pr is:open author:@me updated:<={day}"
+            return f"{kind} is:open author:@me updated:<={day}"
         if query.name == "draft":
-            return "is:pr draft:true is:open author:@me"
+            return f"{kind} draft:true is:open author:@me"
         if query.name == "merged":
             day = (datetime.now() - timedelta(days=query.age)).date().isoformat()
-            return f"is:pr is:merged author:@me updated:>={day}"
+            return f"{kind} is:merged author:@me updated:>={day}"
 
         raise NotImplementedError(f"Unable to build query for {query.name}")
 

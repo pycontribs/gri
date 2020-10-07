@@ -17,10 +17,10 @@ class Server(ABC):  # pylint: disable=too-few-public-methods
     def __init__(self) -> None:
         self.name = "Unknown"
 
-    def query(self, query: Query) -> List:
+    def query(self, query: Query, kind: str = "review") -> List:
         raise NotImplementedError()
 
-    def mk_query(self, query: Query) -> str:
+    def mk_query(self, query: Query, kind: str) -> str:
         raise NotImplementedError()
 
 

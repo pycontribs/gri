@@ -3,6 +3,7 @@
 import logging
 import os
 import sys
+from functools import wraps
 from typing import List, Optional, Type, Union
 
 import click
@@ -34,6 +35,39 @@ GERTTY_CFG_FILE = "~/.gertty.yaml"
 LOG = logging.getLogger(__package__)
 
 
+def command_line_wrapper(func):
+    @wraps(func)
+    def inner_func(*args, **kwargs):
+        # before
+        handler = RichHandler(show_time=False, show_path=False)
+        LOG.addHandler(handler)
+
+        ctx = args[0]
+        LOG.setLevel(get_logging_level(ctx))
+        LOG.info("Called with %s", ctx.params)
+
+        if " " in ctx.params["user"]:
+            ctx.params["user"] = f"\"{ctx.params['user']}\""
+
+        # inner/wrapped code
+        func(*args, **kwargs)
+        # after
+        if ctx.invoked_subcommand is None:
+            LOG.debug(
+                "I was invoked without subcommand, assuming implicit `owned` command"
+            )
+            ctx.invoke(owned)
+
+        if ctx.params["output"]:
+            term.save_html(path=ctx.params["output"], theme=TERMINAL_THEME)
+
+        if ctx.obj.errors:
+            LOG.error("Finished with %s runtime errors", ctx.obj.errors)
+            sys.exit(RC_PARTIAL_RUN)
+
+    return inner_func
+
+
 class Config(dict):
     def __init__(self, file: str) -> None:
         super().__init__()
@@ -57,9 +91,10 @@ class Config(dict):
             sys.exit(RC_CONFIG_ERROR)
 
 
-# pylint: disable=too-few-public-methods
+# pylint: disable=too-few-public-methods,too-many-instance-attributes
 class App:
     def __init__(self, ctx: click.Context) -> None:
+        self.kind = ""  # keep it until we make this abc
         self.ctx = ctx
         self.cfg = Config(file=ctx.params["config"])
         self.servers: List[Server] = []
@@ -96,20 +131,20 @@ class App:
         self.reviews: List[Review] = list()
         term.print(self.header())
 
-    def run_query(self, query: Query) -> int:
+    def run_query(self, query: Query, kind: str) -> int:
         """Performs a query and stores result inside reviews attribute"""
         errors = 0
         self.reviews.clear()
         self.query_details = []
-        for item in self.servers:
+        for server in self.servers:
 
             try:
-                for review in item.query(query=query):
+                for review in server.query(query=query, kind=kind):
                     self.reviews.append(review)
             except (HTTPError, RuntimeError) as exc:
                 LOG.error(exc)
                 errors += 1
-            self.query_details.append(item.mk_query(query))
+            self.query_details.append(server.mk_query(query, kind=kind))
 
         return errors
 
@@ -125,9 +160,9 @@ class App:
         action: Optional[str] = None,
     ) -> None:
         """Produce a table report based on a query."""
+        LOG.debug("Running report() for %s", query)
         if query:
-            self.errors += self.run_query(query)
-
+            self.errors += self.run_query(query, kind=self.kind)
         cnt = 0
 
         table = Table(title=title, border_style="grey15", box=box.MINIMAL, expand=True)
@@ -166,7 +201,67 @@ class App:
         term.print(Markdown("```yaml\n# %s\n%s\n```" % (self.cfg.config_file, msg)))
 
 
+class AppIssues(App):
+    def __init__(self, ctx: click.Context) -> None:
+        super().__init__(ctx)
+        self.kind = "issue"
+
+
+class AppReviews(App):
+    def __init__(self, ctx: click.Context) -> None:
+        super().__init__(ctx)
+        self.kind = "review"
+
+
 class CustomGroup(HelpColorsGroup):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # injects common options shared across all commands using this group
+        options = [
+            click.core.Option(
+                ["-d", "--debug"],
+                default=False,
+                help="Debug mode (same as -vvv)",
+                is_flag=True,
+            ),
+            click.core.Option(
+                ["--output", "-o"],
+                default=None,
+                help="Filename to dump the result in, currently only HTML is supported",
+            ),
+            click.core.Option(
+                ["--force", "-f"],
+                default=False,
+                help="Perform potentially destructive actions.",
+                is_flag=True,
+            ),
+            click.core.Option(
+                ["-q", "--quiet"],
+                count=True,
+                help="Reduce verbosity level, can be specified twice.",
+            ),
+            click.core.Option(
+                ["-v", "--verbose"], count=True, help="Increase verbosity level"
+            ),
+            click.core.Option(
+                ["--user", "-u"], default="self", help="Query another user than self"
+            ),
+            click.core.Option(
+                ["--config"],
+                default=CFG_FILE,
+                help=f"Config file to use, defaults to {CFG_FILE}",
+            ),
+            click.core.Option(
+                ["--server", "-s"],
+                default=None,
+                help=(
+                    "[0,1,2] key in list of servers, Query a single server "
+                    "instead of all"
+                ),
+            ),
+        ]
+        self.params.extend(options)
+
     def get_command(self, ctx: click.Context, cmd_name: str) -> Optional[click.Command]:
         """Undocumented command aliases for lazy users"""
         aliases = {
@@ -189,72 +284,15 @@ class CustomGroup(HelpColorsGroup):
     context_settings=dict(max_content_width=9999),
     chain=True,
 )
-@click.option("--user", "-u", default="self", help="Query another user than self")
-@click.option(
-    "--config", default=CFG_FILE, help=f"Config file to use, defaults to {CFG_FILE}"
-)
-@click.option(
-    "--server",
-    "-s",
-    default=None,
-    help="[0,1,2] key in list of servers, Query a single server instead of all",
-)
-@click.option(
-    "--output",
-    "-o",
-    default=None,
-    help="Filename to dump the result in, currently only HTML is supported",
-)
-@click.option(
-    "--force",
-    "-f",
-    default=False,
-    help="Perform potentially destructive actions.",
-    is_flag=True,
-)
-@click.option(
-    "-q", "--quiet", count=True, help="Reduce verbosity level, can be specified twice."
-)
-@click.option(
-    "-d", "--debug", default=False, help="Debug mode (same as -vvv)", is_flag=True
-)
-@click.option(
-    "-v",
-    "--verbose",
-    count=True,
-    help="Increase verbosity level",
-)
 @click.pass_context
+@command_line_wrapper
 # pylint: disable=unused-argument,too-many-arguments,too-many-locals
 def cli(ctx: click.Context, **kwargs):
     """To enable shell completion, add
     eval "$(_GRI_COMPLETE=source_bash gri)" to your shell profile. Remember to
     replace bash with zsh or fish if needed.
     """
-
-    handler = RichHandler(show_time=False, show_path=False)
-    LOG.addHandler(handler)
-
-    LOG.setLevel(get_logging_level(ctx))
-    LOG.info("Called with %s", ctx.params)
-
-    if " " in ctx.params["user"]:
-        ctx.params["user"] = f"\"{ctx.params['user']}\""
-
-    # import pdb
-    # pdb.set_trace()
-    ctx.obj = App(ctx=ctx)
-
-    if ctx.invoked_subcommand is None:
-        LOG.debug("I was invoked without subcommand, assuming implicit `owned` command")
-        ctx.invoke(owned)
-
-    if ctx.params["output"]:
-        term.save_html(path=ctx.params["output"], theme=TERMINAL_THEME)
-
-    if ctx.obj.errors:
-        LOG.error("Finished with %s runtime errors", ctx.obj.errors)
-        sys.exit(RC_PARTIAL_RUN)
+    ctx.obj = AppReviews(ctx=ctx)
 
 
 @cli.resultcallback()
@@ -344,6 +382,22 @@ def abandon(ctx, age):
 def config(ctx):
     """Display loaded config or a sample if configuration is missing."""
     ctx.obj.display_config()
+
+
+@click.group(
+    cls=CustomGroup,
+    invoke_without_command=True,
+    help_headers_color="yellow",
+    help_options_color="green",
+    context_settings=dict(max_content_width=9999),
+    chain=True,
+)
+@click.pass_context
+@command_line_wrapper
+# pylint: disable=unused-argument
+def cli_bugs(ctx: click.Context, **kwargs):
+    """grib is gri brother that retrieves bugs instead of reviews."""
+    ctx.obj = AppIssues(ctx=ctx)
 
 
 if __name__ == "__main__":
