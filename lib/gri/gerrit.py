@@ -78,9 +78,13 @@ class GerritServer(Server):
             }
         )
 
-    def query(self, query: Query) -> List:
+    def query(self, query: Query, kind="review") -> List:
 
-        gerrit_query = self.mk_query(query)
+        # Gerrit knows only about reviews
+        if kind != "review":
+            return []
+
+        gerrit_query = self.mk_query(query, kind=kind)
 
         payload = [
             ("q", gerrit_query),
@@ -95,7 +99,7 @@ class GerritServer(Server):
             for r in self.parsed(self.__session.get(url))
         ]
 
-    def mk_query(self, query: Query) -> str:
+    def mk_query(self, query: Query, kind: str) -> str:
         if query.name == "owned":
             return f"status:open owner:{self.ctx.obj.user}"
         if query.name == "incoming":

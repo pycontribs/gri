@@ -61,6 +61,9 @@ Commands:
   owned     Changes originated from current user (implicit)
 ```
 
+There is also an experimental `grib` command line for quering bugs (issues),
+which has almost identical options.
+
 ## Contributing
 
 Are you missing a feature, just check if there is a bug open for it and add
