@@ -44,6 +44,9 @@ class GithubServer(Server):
         # https://docs.github.com/en/free-pro-team@latest/github/searching-for-information-on-github/searching-issues-and-pull-requests
         kind = "is:pr" if kind == "review" else "is:issue"
 
+        # we do not want results from archived repos as nobody can change them
+        kind += " archived:no"
+
         if query.name == "owned":
             return f"{kind} is:open author:@me"
         if query.name == "incoming":
