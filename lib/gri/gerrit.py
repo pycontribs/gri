@@ -22,7 +22,6 @@ LOG = logging.getLogger(__package__)
 
 # Used only to force outdated Digest auth for servers not using standard auth
 KNOWN_SERVERS: Dict[str, Dict] = {
-    "https://review.opendev.org/": {"auth": HTTPDigestAuth},
     "https://code.engineering.redhat.com/gerrit/": {
         "auth": HTTPDigestAuth,
         "verify": False,
