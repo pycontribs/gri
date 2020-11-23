@@ -51,9 +51,9 @@ repos:
         additional_dependencies:
           - click-help-colors
           - click-option-group
+          - enrich
           - packaging
           - pygithub
-          - rich
   - repo: https://github.com/pre-commit/mirrors-pylint
     rev: v2.6.0
     hooks:

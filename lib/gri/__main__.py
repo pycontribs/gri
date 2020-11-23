@@ -11,7 +11,6 @@ import yaml
 from click_help_colors import HelpColorsGroup
 from requests.exceptions import HTTPError
 from rich import box
-from rich.logging import RichHandler
 from rich.markdown import Markdown
 from rich.table import Table
 
@@ -39,12 +38,9 @@ def command_line_wrapper(func):
     @wraps(func)
     def inner_func(*args, **kwargs):
         # before
-        handler = RichHandler(show_time=False, show_path=False)
-        LOG.addHandler(handler)
-
         ctx = args[0]
         LOG.setLevel(get_logging_level(ctx))
-        LOG.info("Called with %s", ctx.params)
+        LOG.debug("Called with %s", ctx.params)
 
         if " " in ctx.params["user"]:
             ctx.params["user"] = f"\"{ctx.params['user']}\""
