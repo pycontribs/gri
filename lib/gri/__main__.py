@@ -330,6 +330,22 @@ def merged(ctx, age):
     """Merged in the last number of days"""
     ctx.obj.report(query=Query("merged", age=age), title=f"Merged Reviews ({age}d)")
 
+@cli.command()
+@click.pass_context
+@click.option(
+    "--project_name",
+    default="tripleo",
+    help="project alias in gerrit. This must be configured in gerrit config",
+)
+@click.option(
+    "--age",
+    default=1,
+    help="Number of days to look back, adds -age:NUM",
+)
+def project_merged(ctx, age, project_name):
+    """Merged by project in the last number of days"""
+    ctx.obj.report(query=Query("project_merged", age=age, project_name=project_name),
+                              title=f"Project Merged Reviews ({age}d)")
 
 # @cli.command()
 # @click.pass_context

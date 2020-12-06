@@ -111,6 +111,8 @@ class GerritServer(Server):
             return "status:open owner:self has:draft OR draftby:self"
         if query.name == "merged":
             return f"status:merged -age:{query.age}d owner:{self.ctx.obj.user}"
+        if query.name == "project_merged":
+            return f"{query.project_name} status:merged -age:{query.age}d"
 
         raise NotImplementedError(
             f"{query.name} query not implemented by {self.__class__}"
