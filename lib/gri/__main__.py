@@ -137,10 +137,10 @@ class App:
             try:
                 for review in server.query(query=query, kind=kind):
                     self.reviews.append(review)
-            except (HTTPError, RuntimeError) as exc:
+                self.query_details.append(server.mk_query(query, kind=kind))
+            except (HTTPError, RuntimeError, NotImplementedError) as exc:
                 LOG.error(exc)
                 errors += 1
-            self.query_details.append(server.mk_query(query, kind=kind))
 
         return errors
 
@@ -330,6 +330,7 @@ def merged(ctx, age):
     """Merged in the last number of days"""
     ctx.obj.report(query=Query("merged", age=age), title=f"Merged Reviews ({age}d)")
 
+
 @cli.command()
 @click.pass_context
 @click.option(
@@ -344,8 +345,11 @@ def merged(ctx, age):
 )
 def project_merged(ctx, age, project_name):
     """Merged by project in the last number of days"""
-    ctx.obj.report(query=Query("project_merged", age=age, project_name=project_name),
-                              title=f"Project Merged Reviews ({age}d)")
+    ctx.obj.report(
+        query=Query("project_merged", age=age, project_name=project_name),
+        title=f"Project Merged Reviews ({age}d)",
+    )
+
 
 # @cli.command()
 # @click.pass_context
