@@ -11,6 +11,7 @@ from gri.label import Label
 class Query:
     name: str
     age: int = 0
+    project_name: str = ""
 
 
 class Server(ABC):  # pylint: disable=too-few-public-methods
