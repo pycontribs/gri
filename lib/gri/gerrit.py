@@ -98,6 +98,7 @@ class GerritServer(Server):
             for r in self.parsed(self.__session.get(url))
         ]
 
+    # pylint: disable=too-many-return-statements
     def mk_query(self, query: Query, kind: str) -> str:
         if query.name == "owned":
             return f"status:open owner:{self.ctx.obj.user}"
