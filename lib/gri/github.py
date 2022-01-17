@@ -4,7 +4,6 @@ from datetime import datetime, timedelta
 from typing import Dict, List
 
 import github
-
 from gri.abc import Query, Review, Server
 from gri.label import Label
 
@@ -40,7 +39,7 @@ class GithubServer(Server):
     def mk_query(
         self, query: Query, kind: str = "review"
     ) -> str:  # pylint: disable=no-self-use
-        """Return query string based on """
+        """Return query string based on"""
         # https://docs.github.com/en/free-pro-team@latest/github/searching-for-information-on-github/searching-issues-and-pull-requests
         kind = "is:pr" if kind == "review" else "is:issue"
 
