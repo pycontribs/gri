@@ -8,17 +8,16 @@ from typing import List, Optional, Type, Union
 
 import click
 from click_help_colors import HelpColorsGroup
-from requests.exceptions import HTTPError
-from rich import box
-from rich.markdown import Markdown
-from rich.table import Table
-from yaml import YAMLError, dump, safe_load
-
 from gri.abc import Query, Review, Server
 from gri.console import TERMINAL_THEME, bootstrap, get_logging_level
 from gri.constants import RC_CONFIG_ERROR, RC_PARTIAL_RUN
 from gri.gerrit import GerritServer
 from gri.github import GithubServer
+from requests.exceptions import HTTPError
+from rich import box
+from rich.markdown import Markdown
+from rich.table import Table
+from yaml import YAMLError, dump, safe_load
 
 try:
     from urllib.parse import urlparse
