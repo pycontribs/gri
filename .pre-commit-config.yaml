@@ -54,6 +54,9 @@ repos:
           - enrich
           - packaging
           - pygithub
+          - types-requests
+          - types-PyYAML
+          - types-dataclasses
   - repo: https://github.com/pre-commit/mirrors-pylint
     rev: v3.0.0a4
     hooks:

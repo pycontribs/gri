@@ -7,9 +7,10 @@ import re
 from typing import Dict, List
 
 import requests
+from requests.auth import HTTPBasicAuth, HTTPDigestAuth
+
 from gri.abc import Query, Review, Server
 from gri.label import Label
-from requests.auth import HTTPBasicAuth, HTTPDigestAuth
 
 try:
     from urllib.parse import urlencode, urlparse

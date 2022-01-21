@@ -7,17 +7,18 @@ from functools import wraps
 from typing import List, Optional, Type, Union
 
 import click
-import yaml
 from click_help_colors import HelpColorsGroup
+from requests.exceptions import HTTPError
+from rich import box
+from rich.markdown import Markdown
+from rich.table import Table
+from yaml import YAMLError, dump, safe_load
+
 from gri.abc import Query, Review, Server
 from gri.console import TERMINAL_THEME, bootstrap, get_logging_level
 from gri.constants import RC_CONFIG_ERROR, RC_PARTIAL_RUN
 from gri.gerrit import GerritServer
 from gri.github import GithubServer
-from requests.exceptions import HTTPError
-from rich import box
-from rich.markdown import Markdown
-from rich.table import Table
 
 try:
     from urllib.parse import urlparse
@@ -80,8 +81,8 @@ class Config(dict):
             config_file_full = config_file_full = os.path.expanduser(GERTTY_CFG_FILE)
         try:
             with open(config_file_full, "r") as stream:
-                return dict(yaml.safe_load(stream))
-        except (FileNotFoundError, yaml.YAMLError) as exc:
+                return dict(safe_load(stream))
+        except (FileNotFoundError, YAMLError) as exc:
             LOG.error(exc)
             sys.exit(RC_CONFIG_ERROR)
 
@@ -190,9 +191,10 @@ class App:
         term.print(f"[dim]-- {cnt} changes listed {self.query_details}[/]")
 
     def display_config(self) -> None:
-        msg = yaml.dump(
+        msg = dump(
             dict(self.cfg), default_flow_style=False, tags=False, sort_keys=False
-        )
+        )  # type: ignore
+
         term.print(Markdown("```yaml\n# %s\n%s\n```" % (self.cfg.config_file, msg)))
 
 
@@ -265,7 +267,7 @@ class CustomGroup(HelpColorsGroup):
             "i": incoming,
         }
         try:
-            cmd_name = aliases[cmd_name].name
+            cmd_name = aliases[cmd_name].name or "undefined"
         except KeyError:
             pass
         return super().get_command(ctx, cmd_name)

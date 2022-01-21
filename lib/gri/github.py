@@ -4,6 +4,7 @@ from datetime import datetime, timedelta
 from typing import Dict, List
 
 import github
+
 from gri.abc import Query, Review, Server
 from gri.label import Label
 
