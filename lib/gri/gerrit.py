@@ -77,7 +77,6 @@ class GerritServer(Server):
         )
 
     def query(self, query: Query, kind="review") -> List:
-
         # Gerrit knows only about reviews
         if kind != "review":
             return []
