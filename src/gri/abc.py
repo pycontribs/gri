@@ -1,7 +1,7 @@
 import datetime
-from abc import ABC
+from abc import ABC, abstractmethod
+from collections.abc import Iterator
 from dataclasses import dataclass
-from typing import Dict, Iterator, List
 
 from gri.console import link
 from gri.label import Label
@@ -18,11 +18,13 @@ class Server(ABC):  # pylint: disable=too-few-public-methods
     def __init__(self) -> None:
         self.name = "Unknown"
 
-    def query(self, query: Query, kind: str = "review") -> List:
-        raise NotImplementedError()
+    @abstractmethod
+    def query(self, query: Query, kind: str = "review") -> list:
+        raise NotImplementedError
 
+    @abstractmethod
     def mk_query(self, query: Query, kind: str) -> str:
-        raise NotImplementedError()
+        raise NotImplementedError
 
 
 class Review:  # pylint: disable=too-many-instance-attributes
@@ -39,7 +41,7 @@ class Review:  # pylint: disable=too-many-instance-attributes
         self.project = ""
         self.branch = "master"
         self.topic = ""
-        self.labels: Dict[str, Label] = {}
+        self.labels: dict[str, Label] = {}
         self.server = server
 
     def age(self) -> int:
@@ -53,21 +55,18 @@ class Review:  # pylint: disable=too-many-instance-attributes
     def __getattr__(self, name):
         if name in self.data:
             return self.data[name]
-        raise AttributeError(f"{name} not found in {self.data}")
+        msg = f"{name} not found in {self.data}"
+        raise AttributeError(msg)
         # if name == "number":
-        #     return self.data["_number"]
-        # return None
 
     def short_project(self) -> str:
         return self.project
 
-    def colorize(self, text: str) -> str:  # pylint: disable=no-self-use
+    def colorize(self, text: str) -> str:
         return text
 
     def as_columns(self) -> list:
         """Return review info as columns with rich text."""
-        # return [self.title]
-
         result = []
 
         # avoid use of emoji due to:
@@ -84,12 +83,10 @@ class Review:  # pylint: disable=too-many-instance-attributes
             msg += f" [branch][{self.branch}][/]"
 
         # description/detail column
-        msg += "[dim]: %s[/]" % (self.title)
+        msg += f"[dim]: {self.title}[/]"
 
         if self.topic:
-            topic_url = "{}#/q/topic:{}+(status:open+OR+status:merged)".format(
-                self.server.url, self.topic
-            )
+            topic_url = f"{self.server.url}#/q/topic:{self.topic}+(status:open+OR+status:merged)"
             msg += f" {link(topic_url, self.topic)}"
 
         if self.status == "NEW" and not self.mergeable:
@@ -105,13 +102,13 @@ class Review:  # pylint: disable=too-many-instance-attributes
         for label in self._get_labels(meta=True):
             # we do not display labels with no value
             if label.value:
-                msg += " %s" % label
+                msg += f" {label}"
 
         result.extend([msg.strip(), f" [dim]{self.score*100:.0f}%[/]"])
 
         return result
 
-    def _get_labels(self, meta=False) -> Iterator[Label]:
+    def _get_labels(self, *, meta: bool = False) -> Iterator[Label]:
         """Return labels that are part of meta group or opposite."""
         for label in self.labels.values():
             if label.is_meta() == meta:
@@ -119,14 +116,14 @@ class Review:  # pylint: disable=too-many-instance-attributes
 
     @property
     def is_mergeable(self):
-        raise NotImplementedError()
+        raise NotImplementedError
 
     def is_reviewed(self) -> bool:
-        pass
+        raise NotImplementedError
 
     def __lt__(self, other) -> bool:
-        pass
+        return self.score >= other.score
 
-    def abandon(self, dry=True) -> None:
+    def abandon(self, *, dry: bool = True) -> None:
         # shell out here because HTTPS api to abandon can fail
-        pass
+        raise NotImplementedError

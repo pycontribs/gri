@@ -4,23 +4,18 @@ import logging
 import netrc
 import os
 import re
-from typing import Dict, List
+from urllib.parse import urlencode, urlparse
 
 import requests
-from gri.abc import Query, Review, Server
-from gri.label import Label
 from requests.auth import HTTPBasicAuth, HTTPDigestAuth
 
-try:
-    from urllib.parse import urlencode, urlparse
-except ImportError:
-    from urlparse import urlencode, urlparse  # type: ignore
-
+from gri.abc import Query, Review, Server
+from gri.label import Label
 
 LOG = logging.getLogger(__package__)
 
 # Used only to force outdated Digest auth for servers not using standard auth
-KNOWN_SERVERS: Dict[str, Dict] = {
+KNOWN_SERVERS: dict[str, dict] = {
     "https://code.engineering.redhat.com/gerrit/": {
         "auth": HTTPDigestAuth,
         "verify": False,
@@ -67,16 +62,16 @@ class GerritServer(Server):
                 netrc_file,
             )
         else:
-            self.__session.auth = self.auth_class(token[0], token[2])
+            self.__session.auth = self.auth_class(token[0], token[2])  # type: ignore[arg-type]
 
         self.__session.headers.update(
             {
                 "Content-Type": "application/json;charset=UTF-8",
                 "Access-Control-Allow-Origin": "*",
-            }
+            },
         )
 
-    def query(self, query: Query, kind="review") -> List:
+    def query(self, query: Query, kind="review") -> list:
         # Gerrit knows only about reviews
         if kind != "review":
             return []
@@ -113,8 +108,9 @@ class GerritServer(Server):
         if query.name == "project_merged":
             return f"{query.project_name} status:merged -age:{query.age}d"
 
+        msg = f"{query.name} query not implemented by {self.__class__}"
         raise NotImplementedError(
-            f"{query.name} query not implemented by {self.__class__}"
+            msg,
         )
 
     @staticmethod
@@ -139,21 +135,19 @@ class ChangeRequest(Review):  # pylint: disable=too-many-instance-attributes
         self.starred = data.get("starred", False)
         self.server = server
 
-        if "topic" not in data:
-            self.topic = ""
-        else:
-            self.topic = data["topic"]
+        self.topic = data.get("topic", "")
 
         self.title = data["subject"]
 
         self.updated = datetime.datetime.strptime(
-            self.data["updated"][:-3], "%Y-%m-%d %H:%M:%S.%f"
+            self.data["updated"][:-3],
+            "%Y-%m-%d %H:%M:%S.%f",
         )
 
         if re.compile("^\\[?(WIP|DNM|POC).+$", re.IGNORECASE).match(self.title):
             self.is_wip = True
 
-        self.url = "{}#/c/{}/".format(self.server.url, self.number)
+        self.url = f"{self.server.url}#/c/{self.number}/"
 
         # Secret ScoreRank implementation which aims to map any review on a
         # scale from 0 to 1, where 1 is alredy merged, and 0 is something that
@@ -164,9 +158,8 @@ class ChangeRequest(Review):  # pylint: disable=too-many-instance-attributes
         self.score = 1.0
         # disabled staring as it does not effectively affect chance of merging
         # if not self.starred:
-        #     self.score *= 0.9
 
-        self.labels: Dict[str, Label] = {}
+        self.labels: dict[str, Label] = {}
 
         for label_name, label_data in data.get("labels", {}).items():
             label = Label(label_name, label_data)
@@ -213,55 +206,26 @@ class ChangeRequest(Review):  # pylint: disable=too-many-instance-attributes
     # def as_columns(self) -> list:
     #     """Return review info as columns with rich text."""
 
-    #     result = []
-
     #     # avoid use of emoji due to:
     #     # https://github.com/willmcgugan/rich/issues/148
-    #     star = "[bright_yellow]★[/] " if self.starred else ""
-
-    #     result.append(f"{star}{self.colorize(link(self.url, self.number))}")
-
-    #     result.append(f"[dim]{self.age():3}[/]" if self.age() else "")
-
-    #     msg = f"[{ 'wip' if self.is_wip else 'normal' }]{self.short_project()}[/]"
 
     #     if self.branch != "master":
-    #         msg += f" [branch][{self.branch}][/]"
-
-    #     msg += "[dim]: %s[/]" % (self.title)
 
     #     if self.topic:
-    #         topic_url = "{}#/q/topic:{}+(status:open+OR+status:merged)".format(
     #             self.server.url, self.topic
-    #         )
-    #         msg += f" {link(topic_url, self.topic)}"
 
     #     if self.status == "NEW" and not self.mergeable:
-    #         msg += " [veryhigh]cannot-merge[/]"
-    #     result.append(msg)
 
-    #     msg = ""
     #     for label in self.labels.values():
     #         if label.value:
     #             # we print only labels without 0 value
-    #             msg += " %s" % label
-
-    #     result.extend([msg.strip(), f" [dim]{self.score*100:.0f}%[/]"])
-
-    #     return result
 
     def is_reviewed(self) -> bool:
         return self.data["labels"]["Code-Review"]["value"] > 1
 
-    def __lt__(self, other) -> bool:
-        return self.score >= other.score
-
-    def abandon(self, dry=True) -> None:
+    def abandon(self, *, dry: bool = True) -> None:
         # shell out here because HTTPS api to abandon can fail
-        if self.draft:
-            action = "delete"
-        else:
-            action = "abandon"
+        action = "delete" if self.draft else "abandon"
 
         LOG.warning("Performing %s on %s", action, self.number)
         if not dry:

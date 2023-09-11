@@ -30,3 +30,5 @@ pip-wheel-metadata
 credentials.json
 
 pip-wheel-metadata
+src/gri/_version.py
+report.html

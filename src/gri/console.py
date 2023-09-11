@@ -43,7 +43,7 @@ theme = Theme(
         "veryhigh": "dim red",  # Very high danger
         "branch": "magenta",
         "wip": "bold yellow",
-    }
+    },
 )
 
 
@@ -54,12 +54,13 @@ def bootstrap() -> Console:
     logging_console = Console(file=sys.stderr, force_terminal=1, theme=theme)
 
     logger = logging.getLogger()  # type: logging.Logger
-    # logger.setLevel(logging.DEBUG)
 
     handler = RichHandler(
-        console=logging_console, show_time=False, show_path=False, markup=True
-    )  # type: ignore
-    # logger.addHandler(handler)
+        console=logging_console,
+        show_time=False,
+        show_path=False,
+        markup=True,
+    )
     logger.handlers = [handler]
     logger.propagate = False
 
@@ -104,7 +105,9 @@ def get_logging_level(ctx) -> int:
 class MyCodeBlock(CodeBlock):
     # pylint: disable=unused-argument
     def __rich_console__(
-        self, console: rich.console.Console, options: ConsoleOptions
+        self,
+        console: rich.console.Console,
+        options: ConsoleOptions,
     ) -> RenderResult:
         code = str(self.text).rstrip()
         syntax = Syntax(code, self.lexer_name, theme=self.theme)
