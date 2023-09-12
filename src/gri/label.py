@@ -23,17 +23,15 @@ class Label:
             self.value += -1
         if data.get("optional", False):
             self.value = 1
-        for unknown in set(data.keys()) - set(
-            [
-                "blocking",
-                "approved",
-                "recommended",
-                "disliked",
-                "rejected",
-                "value",
-                "optional",
-            ]
-        ):
+        for unknown in set(data.keys()) - {
+            "blocking",
+            "approved",
+            "recommended",
+            "disliked",
+            "rejected",
+            "value",
+            "optional",
+        }:
             LOG.debug("Found unknown label field %s: %s", unknown, data.get(unknown))
 
     def is_meta(self) -> bool:

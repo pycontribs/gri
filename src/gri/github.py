@@ -1,16 +1,12 @@
 import logging
 import os
 from datetime import datetime, timedelta
-from typing import Dict, List
+from urllib.parse import urlparse
 
 import github
+
 from gri.abc import Query, Review, Server
 from gri.label import Label
-
-try:
-    from urllib.parse import urlparse
-except ImportError:
-    from urlparse import urlparse  # type: ignore
 
 LOG = logging.getLogger(__package__)
 
@@ -24,7 +20,7 @@ class GithubServer(Server):
         token = os.environ.get("HOMEBREW_GITHUB_API_TOKEN")
         self.github = github.Github(login_or_token=token)
 
-    def query(self, query: Query, kind="review") -> List:
+    def query(self, query: Query, kind="review") -> list:
         LOG.debug("Called query=%s and kind=%s", query, kind)
         reviews = []
         limit = 50
@@ -32,14 +28,14 @@ class GithubServer(Server):
         for _, item in zip(range(limit), results):
             review = PullRequest(data=item.raw_data, server=self)
             reviews.append(review)
-        # mine = [x for x in self.github.search_issues("author:@me")]
-        # print(mine)
         return reviews
 
     def mk_query(
-        self, query: Query, kind: str = "review"
-    ) -> str:  # pylint: disable=no-self-use
-        """Return query string based on"""
+        self,
+        query: Query,
+        kind: str = "review",
+    ) -> str:
+        """Return query string based on."""
         # https://docs.github.com/en/free-pro-team@latest/github/searching-for-information-on-github/searching-issues-and-pull-requests
         kind = "is:pr" if kind == "review" else "is:issue"
 
@@ -61,7 +57,8 @@ class GithubServer(Server):
             day = (datetime.now() - timedelta(days=query.age)).date().isoformat()
             return f"{kind} is:merged author:@me updated:>={day}"
 
-        raise NotImplementedError(f"Unable to build query for {query.name}")
+        msg = f"Unable to build query for {query.name}"
+        raise NotImplementedError(msg)
 
 
 class PullRequest(Review):  # pylint: disable=too-many-instance-attributes
@@ -71,7 +68,6 @@ class PullRequest(Review):  # pylint: disable=too-many-instance-attributes
         self.url = data["html_url"]
         self.number = data["number"]
         self.data = data
-        # LOG.error(data)
         self.server = server
         self.updated = datetime.strptime(self.data["updated_at"], "%Y-%m-%dT%H:%M:%SZ")
         self.state = data["state"]
@@ -81,18 +77,11 @@ class PullRequest(Review):  # pylint: disable=too-many-instance-attributes
         if data.get("draft", False):
             self.is_wip = True
 
-        self.labels: Dict[str, Label] = {}
+        self.labels: dict[str, Label] = {}
         if isinstance(data.get("labels", {}), list):  # github
             for label_data in data.get("labels", []):
                 label = Label(label_data["name"], label_data)
                 self.labels[label_data["name"]] = label
-
-        # TODO add labels
-        # print(_)
-        # locked
-        # assignee
-        # closed_at
-        # closed_by
 
     @property
     def status(self):
@@ -101,3 +90,6 @@ class PullRequest(Review):  # pylint: disable=too-many-instance-attributes
     @property
     def is_mergeable(self):
         return self.state == "open"
+
+    def is_reviewed(self) -> bool:
+        raise NotImplementedError

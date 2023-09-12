@@ -1,28 +1,26 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
+from __future__ import annotations
+
+import contextlib
 import logging
 import os
 import sys
 from functools import wraps
-from typing import List, Optional, Type, Union
+from urllib.parse import urlparse
 
 import click
 from click_help_colors import HelpColorsGroup
-from gri.abc import Query, Review, Server
-from gri.console import TERMINAL_THEME, bootstrap, get_logging_level
-from gri.constants import RC_CONFIG_ERROR, RC_PARTIAL_RUN
-from gri.gerrit import GerritServer
-from gri.github import GithubServer
 from requests.exceptions import HTTPError
 from rich import box
 from rich.markdown import Markdown
 from rich.table import Table
 from yaml import YAMLError, dump, safe_load
 
-try:
-    from urllib.parse import urlparse
-except ImportError:
-    from urlparse import urlparse  # type: ignore
+from gri.abc import Query, Review, Server
+from gri.console import TERMINAL_THEME, bootstrap, get_logging_level
+from gri.constants import RC_CONFIG_ERROR, RC_PARTIAL_RUN
+from gri.gerrit import GerritServer
+from gri.github import GithubServer
 
 term = bootstrap()
 
@@ -49,7 +47,7 @@ def command_line_wrapper(func):
         # after
         if ctx.invoked_subcommand is None:
             LOG.debug(
-                "I was invoked without subcommand, assuming implicit `owned` command"
+                "I was invoked without subcommand, assuming implicit `owned` command",
             )
             ctx.invoke(owned)
 
@@ -79,7 +77,7 @@ class Config(dict):
             )
             config_file_full = config_file_full = os.path.expanduser(GERTTY_CFG_FILE)
         try:
-            with open(config_file_full, "r") as stream:
+            with open(config_file_full, encoding="utf-8") as stream:
                 return dict(safe_load(stream))
         except (FileNotFoundError, YAMLError) as exc:
             LOG.error(exc)
@@ -92,10 +90,10 @@ class App:
         self.kind = ""  # keep it until we make this abc
         self.ctx = ctx
         self.cfg = Config(file=ctx.params["config"])
-        self.servers: List[Server] = []
+        self.servers: list[Server] = []
         self.user = ctx.params["user"]
         self.errors = 0  # number of errors encountered
-        self.query_details: List[str] = []
+        self.query_details: list[str] = []
         server = ctx.params["server"]
         try:
             for srv in (
@@ -104,17 +102,14 @@ class App:
                 else [self.cfg["servers"][int(server)]]
             ):
                 try:
-                    # TODO(ssbarnea): make server type configurable
                     parsed_uri = urlparse(srv["url"])
-                    srv_class: Union[
-                        Type[GithubServer], Type[GerritServer]
-                    ] = GerritServer
+                    srv_class: type[GithubServer | GerritServer] = GerritServer
                     if parsed_uri.netloc == "github.com":
                         srv_class = GithubServer
                     self.servers.append(
-                        srv_class(url=srv["url"], name=srv["name"], ctx=self.ctx)
+                        srv_class(url=srv["url"], name=srv["name"], ctx=self.ctx),
                     )
-                except SystemError as exc:
+                except SystemError as exc:  # noqa: PERF203
                     LOG.error(exc)
         except IndexError:
             LOG.error("Unable to find server %s index in server list.", server)
@@ -123,11 +118,11 @@ class App:
             LOG.error("List of servers is invalid or empty.")
             sys.exit(RC_CONFIG_ERROR)
 
-        self.reviews: List[Review] = list()
+        self.reviews: list[Review] = []
         term.print(self.header())
 
     def run_query(self, query: Query, kind: str) -> int:
-        """Performs a query and stores result inside reviews attribute"""
+        """Performs a query and stores result inside reviews attribute."""
         errors = 0
         self.reviews.clear()
         self.query_details = []
@@ -136,7 +131,11 @@ class App:
                 for review in server.query(query=query, kind=kind):
                     self.reviews.append(review)
                 self.query_details.append(server.mk_query(query, kind=kind))
-            except (HTTPError, RuntimeError, NotImplementedError) as exc:
+            except (  # noqa: PERF203
+                HTTPError,
+                RuntimeError,
+                NotImplementedError,
+            ) as exc:
                 LOG.error(exc)
                 errors += 1
 
@@ -151,7 +150,7 @@ class App:
         query: Query,
         title: str = "Reviews",
         max_score: int = 1,
-        action: Optional[str] = None,
+        action: str | None = None,
     ) -> None:
         """Produce a table report based on a query."""
         LOG.debug("Running report() for %s", query)
@@ -189,11 +188,14 @@ class App:
         term.print(f"[dim]-- {cnt} changes listed {self.query_details}[/]")
 
     def display_config(self) -> None:
-        msg = dump(
-            dict(self.cfg), default_flow_style=False, tags=False, sort_keys=False
-        )  # type: ignore
+        msg = dump(  # type: ignore[call-overload]
+            data=dict(self.cfg),
+            default_flow_style=False,
+            tags=False,
+            sort_keys=False,
+        )
 
-        term.print(Markdown("```yaml\n# %s\n%s\n```" % (self.cfg.config_file, msg)))
+        term.print(Markdown(f"```yaml\n# {self.cfg.config_file}\n{msg}\n```"))
 
 
 class AppIssues(App):
@@ -209,7 +211,7 @@ class AppReviews(App):
 
 
 class CustomGroup(HelpColorsGroup):
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
         # injects common options shared across all commands using this group
         options = [
@@ -236,10 +238,14 @@ class CustomGroup(HelpColorsGroup):
                 help="Reduce verbosity level, can be specified twice.",
             ),
             click.core.Option(
-                ["-v", "--verbose"], count=True, help="Increase verbosity level"
+                ["-v", "--verbose"],
+                count=True,
+                help="Increase verbosity level",
             ),
             click.core.Option(
-                ["--user", "-u"], default="self", help="Query another user than self"
+                ["--user", "-u"],
+                default="self",
+                help="Query another user than self",
             ),
             click.core.Option(
                 ["--config"],
@@ -257,17 +263,16 @@ class CustomGroup(HelpColorsGroup):
         ]
         self.params.extend(options)
 
-    def get_command(self, ctx: click.Context, cmd_name: str) -> Optional[click.Command]:
-        """Undocumented command aliases for lazy users"""
+    def get_command(self, ctx: click.Context, cmd_name: str) -> click.Command | None:
+        """Undocumented command aliases for lazy users."""
         aliases = {
             "o": owned,
             "m": merged,
             "i": incoming,
         }
-        try:
+        with contextlib.suppress(KeyError):
             cmd_name = aliases[cmd_name].name or "undefined"
-        except KeyError:
-            pass
+
         return super().get_command(ctx, cmd_name)
 
 
@@ -276,7 +281,7 @@ class CustomGroup(HelpColorsGroup):
     invoke_without_command=True,
     help_headers_color="yellow",
     help_options_color="green",
-    context_settings=dict(max_content_width=9999),
+    context_settings={"max_content_width": 9999},
     chain=True,
 )
 @click.pass_context
@@ -301,9 +306,7 @@ def process_result(result, **kwargs):  # pylint: disable=unused-argument
 @cli.command()
 @click.pass_context
 def owned(ctx):
-    """Changes originated from current user (implicit)"""
-    # query = "status:open"
-    # query += f" owner:{ctx.obj.user}"
+    """Changes originated from current user (implicit)."""
     if ctx.obj.user == "self":
         title = "Own reviews"
     else:
@@ -314,7 +317,7 @@ def owned(ctx):
 @cli.command()
 @click.pass_context
 def incoming(ctx):
-    """Incoming reviews"""
+    """Incoming reviews."""
     ctx.obj.report(query=Query("incoming"), title=incoming.__doc__)
 
 
@@ -326,7 +329,7 @@ def incoming(ctx):
     help="Number of days to look back, adds -age:NUM",
 )
 def merged(ctx, age):
-    """Merged in the last number of days"""
+    """Merged in the last number of days."""
     ctx.obj.report(query=Query("merged", age=age), title=f"Merged Reviews ({age}d)")
 
 
@@ -343,7 +346,7 @@ def merged(ctx, age):
     help="Number of days to look back, adds -age:NUM",
 )
 def project_merged(ctx, age, project_name):
-    """Merged by project in the last number of days"""
+    """Merged by project in the last number of days."""
     ctx.obj.report(
         query=Query("project_merged", age=age, project_name=project_name),
         title=f"Project Merged Reviews ({age}d)",
@@ -354,14 +357,12 @@ def project_merged(ctx, age, project_name):
 # @click.pass_context
 # def custom(ctx):
 #     """Custom query"""
-#     query = f"cc:{ctx.obj.user} status:open"
-#     ctx.obj.report(query=query, title="Custom query")
 
 
 @cli.command()
 @click.pass_context
 def watched(ctx):
-    """Watched reviews based on server side filters"""
+    """Watched reviews based on server side filters."""
     ctx.obj.report(query=Query("watched"), title=watched.__doc__)
 
 
@@ -382,8 +383,8 @@ def draft(ctx):
 )
 def abandon(ctx, age):
     """Abandon changes (delete for drafts) when they are >90 days old
-    and with very low score. Requires -f to perform the action."""
-
+    and with very low score. Requires -f to perform the action.
+    """
     ctx.obj.report(
         query=Query("abandon", age=age),
         title=f"Reviews to abandon ({age}d)",
@@ -404,14 +405,14 @@ def config(ctx):
     invoke_without_command=True,
     help_headers_color="yellow",
     help_options_color="green",
-    context_settings=dict(max_content_width=9999),
+    context_settings={"max_content_width": 9999},
     chain=True,
 )
 @click.pass_context
 @command_line_wrapper
 # pylint: disable=unused-argument
 def cli_bugs(ctx: click.Context, **kwargs):
-    """grib is gri brother that retrieves bugs instead of reviews."""
+    """Grib is gri brother that retrieves bugs instead of reviews."""
     ctx.obj = AppIssues(ctx=ctx)
 
 

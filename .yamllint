@@ -9,6 +9,9 @@ rules:
   brackets:
     max-spaces-inside: 1
     level: error
+  comments:
+    # prettier compatibility
+    min-spaces-from-content: 1
   document-start: disable
   line-length: disable
   truthy:
