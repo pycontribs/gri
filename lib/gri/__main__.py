@@ -132,7 +132,6 @@ class App:
         self.reviews.clear()
         self.query_details = []
         for server in self.servers:
-
             try:
                 for review in server.query(query=query, kind=kind):
                     self.reviews.append(review)
@@ -291,7 +290,7 @@ def cli(ctx: click.Context, **kwargs):
     ctx.obj = AppReviews(ctx=ctx)
 
 
-@cli.resultcallback()
+@cli.result_callback()
 def process_result(result, **kwargs):  # pylint: disable=unused-argument
     output = kwargs["output"]
     if kwargs["output"]:
@@ -417,5 +416,4 @@ def cli_bugs(ctx: click.Context, **kwargs):
 
 
 if __name__ == "__main__":
-
     cli()  # pylint: disable=no-value-for-parameter
