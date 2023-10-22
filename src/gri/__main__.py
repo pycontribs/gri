@@ -289,7 +289,7 @@ class CustomGroup(HelpColorsGroup):
 # pylint: disable=unused-argument,too-many-arguments,too-many-locals
 def cli(ctx: click.Context, **kwargs):
     """To enable shell completion, add
-    eval "$(_GRI_COMPLETE=source_bash gri)" to your shell profile. Remember to
+    eval "$(_GRI_COMPLETE=bash_source gri)" to your shell profile. Remember to
     replace bash with zsh or fish if needed.
     """
     ctx.obj = AppReviews(ctx=ctx)
